@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER:
+      POSTGRES_PASSWORD:
+      POSTGRES_DB: evaluation_platform
+    ports:
+      - "5432:5432"
