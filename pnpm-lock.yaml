@@ -12,7 +12,7 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.69.0(react@19.2.3))
       '@prisma/client':
-        specifier: ^5.22.0
+        specifier: '5'
         version: 5.22.0(prisma@5.22.0)
       '@radix-ui/react-label':
         specifier: ^2.1.8
@@ -88,7 +88,7 @@ importers:
         specifier: 8.4.35
         version: 8.4.35
       prisma:
-        specifier: ^5.22.0
+        specifier: '5'
         version: 5.22.0
       tailwindcss:
         specifier: 3.4.17
