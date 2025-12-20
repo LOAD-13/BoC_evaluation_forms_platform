@@ -1,2 +1,44 @@
-# File generated automatically
+# Dependencias
+node_modules
+.pnpm-store
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Archivos de entorno (Ya tienes .env, pero es bueno cubrir variantes)
 .env
+.env*.local
+.env.production
+.env.development
+.env.test
+
+# Logs y depuración
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Editor de código (Opcional pero recomendado)
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# Prisma (Si usaras SQLite local, que no parece ser el caso por 'pg', pero por si acaso)
+*.sqlite
+*.sqlite-journal
+
+# Archivos subidos por usuarios (Mantener la carpeta pero ignorar contenido)
+# Veo que tienes una carpeta 'uploads', generalmente no se versionan las imágenes de prueba
+public/uploads/*
+!public/uploads/.keep
+!public/uploads/**/.keep

@@ -1,9 +1,15 @@
 services:
   postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER:
-      POSTGRES_PASSWORD:
-      POSTGRES_DB: evaluation_platform
+    image: postgres:15
+    container_name: postgres_form
     ports:
       - "5432:5432"
+    environment:
+      POSTGRES_USER: user_form
+      POSTGRES_PASSWORD: user_form_password
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
