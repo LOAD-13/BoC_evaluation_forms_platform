@@ -25,8 +25,8 @@ export async function PATCH(
         const { formId } = await params
         const body = await req.json()
 
-        // Validación básica de campos permitidos
-        const { status, title, description } = body
+        // [MODIFICADO] Agregamos bannerImageUrl a la desestructuración
+        const { status, title, description, bannerImageUrl } = body
 
         // Verificar propiedad
         const form = await prisma.form.findUnique({
@@ -46,12 +46,14 @@ export async function PATCH(
             return NextResponse.json({ error: "Estado inválido" }, { status: 400 })
         }
 
+        // [MODIFICADO] Incluimos bannerImageUrl en la actualización
         const updatedForm = await prisma.form.update({
             where: { id: formId },
             data: {
                 ...(title && { title }),
-                ...(description !== undefined && { description }),
-                ...(status && { status })
+                ...(description !== undefined && { description }), // Permite borrar descripción enviando string vacío
+                ...(status && { status }),
+                ...(bannerImageUrl !== undefined && { bannerImageUrl }) // Actualiza banner
             }
         })
 

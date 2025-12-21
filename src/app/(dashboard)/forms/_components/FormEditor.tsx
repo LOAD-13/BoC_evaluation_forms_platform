@@ -3,7 +3,11 @@ import React, { useState } from "react"
 import QuestionBuilder, { Question } from "./QuestionBuilder"
 import AssignmentManager from "./AssignmentManager"
 import { Button } from "@/components/ui/button"
-import { Save, Loader2, RefreshCcw } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import ImageUploader from "@/components/forms/ImageUploader" // [IMPORTANTE] Importar el uploader
+import { Save, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -18,55 +22,60 @@ import { Badge } from "@/components/ui/badge"
 
 interface FormEditorProps {
     formId: string
-    initialStatus: string // O FormStatus
+    initialStatus: string
     initialTitle: string
+    initialDescription?: string // Agregado
+    initialBannerUrl?: string | null // Agregado
     initialQuestions?: Question[]
 }
 
-export default function FormEditor({ formId, initialStatus, initialTitle, initialQuestions }: FormEditorProps) {
+export default function FormEditor({
+    formId,
+    initialStatus,
+    initialTitle,
+    initialDescription,
+    initialBannerUrl,
+    initialQuestions
+}: FormEditorProps) {
     const { toast } = useToast()
     const router = useRouter()
 
     const [status, setStatus] = useState<FormStatus>(initialStatus as FormStatus)
     const [isLoading, setIsLoading] = useState(false)
-    const [isSavingStatus, setIsSavingStatus] = useState(false)
 
-    // Si vienen preguntas, usamos esas. Si no, una por defecto vacía.
+    // [MODIFICADO] Estados para metadatos del formulario
+    const [title, setTitle] = useState(initialTitle)
+    const [description, setDescription] = useState(initialDescription || "")
+    const [bannerUrl, setBannerUrl] = useState(initialBannerUrl)
+
     const [questions, setQuestions] = useState<Question[]>(
         initialQuestions && initialQuestions.length > 0
             ? initialQuestions
-            : [{ id: Date.now(), text: "", type: "text", required: false, options: [] }]
+            : [{ id: Date.now(), text: "", type: "text", required: false, options: [], points: 1 }]
     )
 
-    const handleStatusChange = async (newStatus: FormStatus) => {
-        setIsSavingStatus(true)
+    // Función unificada para guardar los metadatos (Título, Desc, Banner, Estado)
+    const handleUpdateMetadata = async (fieldData: any) => {
         try {
             const response = await fetch(`/api/forms/${formId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify(fieldData)
             })
 
-            if (!response.ok) throw new Error("Error al actualizar estado")
+            if (!response.ok) throw new Error("Error al actualizar")
 
-            setStatus(newStatus)
-            toast({
-                title: "Estado actualizado",
-                description: `El formulario ahora está: ${STATUS_LABELS[newStatus]}`,
-            })
+            // Si cambiamos el estado, actualizamos el estado local
+            if (fieldData.status) setStatus(fieldData.status)
+
+            toast({ title: "Guardado correctamente" })
             router.refresh()
         } catch (error) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "No se pudo cambiar el estado",
-            })
-        } finally {
-            setIsSavingStatus(false)
+            toast({ variant: "destructive", title: "Error", description: "No se pudo guardar el cambio" })
         }
     }
 
-    const handleSave = async () => {
+    const handleSaveQuestions = async () => {
         setIsLoading(true)
         try {
             const response = await fetch(`/api/forms/${formId}/questions`, {
@@ -75,82 +84,94 @@ export default function FormEditor({ formId, initialStatus, initialTitle, initia
                 body: JSON.stringify(questions)
             })
 
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || "Error al guardar preguntas")
-            }
+            if (!response.ok) throw new Error("Error al guardar preguntas")
 
-            toast({
-                title: "Cambios guardados",
-                description: "Las preguntas se han actualizado correctamente.",
-            })
-
-            // Opcional: Redirigir o actualizar estado
+            toast({ title: "Preguntas guardadas", description: "El examen está actualizado." })
         } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: error.message,
-            })
+            toast({ variant: "destructive", title: "Error", description: error.message })
         } finally {
             setIsLoading(false)
         }
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <h1 className="text-3xl font-bold tracking-tight">{initialTitle}</h1>
-                        <Badge variant={status === FormStatus.PUBLISHED ? "outline" : "secondary"}>
-                            {STATUS_LABELS[status]}
-                        </Badge>
-                    </div>
-                    <p className="text-muted-foreground">Gestiona las preguntas y el estado de tu evaluación.</p>
+        <div className="space-y-8 max-w-5xl mx-auto pb-20">
+            {/* ENCABEZADO DE GESTIÓN (Estado y Botón Guardar) */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b pb-4 sticky top-0 bg-background/95 backdrop-blur z-10 py-4">
+                <div className="flex items-center gap-3">
+                    <Badge variant={status === FormStatus.PUBLISHED ? "default" : "secondary"} className="text-sm px-3 py-1">
+                        {STATUS_LABELS[status]}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">Última edición: Reciente</span>
                 </div>
 
-                <div className="flex items-center space-x-2 w-full md:w-auto">
-                    {/* Selector de Estado */}
-                    <div className="w-[180px]">
-                        <Select
-                            value={status}
-                            onValueChange={(val) => handleStatusChange(val as FormStatus)}
-                            disabled={isSavingStatus}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Estado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={FormStatus.DRAFT}>
-                                    {STATUS_LABELS[FormStatus.DRAFT]}
-                                </SelectItem>
-                                <SelectItem value={FormStatus.PUBLISHED}>
-                                    {STATUS_LABELS[FormStatus.PUBLISHED]}
-                                </SelectItem>
-                                <SelectItem value={FormStatus.ARCHIVED}>
-                                    {STATUS_LABELS[FormStatus.ARCHIVED]}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <div className="flex items-center gap-2">
+                    <Select
+                        value={status}
+                        onValueChange={(val) => handleUpdateMetadata({ status: val })}
+                    >
+                        <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={FormStatus.DRAFT}>{STATUS_LABELS[FormStatus.DRAFT]}</SelectItem>
+                            <SelectItem value={FormStatus.PUBLISHED}>{STATUS_LABELS[FormStatus.PUBLISHED]}</SelectItem>
+                            <SelectItem value={FormStatus.ARCHIVED}>{STATUS_LABELS[FormStatus.ARCHIVED]}</SelectItem>
+                        </SelectContent>
+                    </Select>
 
                     <AssignmentManager formId={formId} />
 
-                    <Button onClick={handleSave} disabled={isLoading}>
-                        {isLoading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="mr-2 h-4 w-4" /> Guardar
-                            </>
-                        )}
+                    <Button onClick={handleSaveQuestions} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Guardar Preguntas
                     </Button>
                 </div>
             </div>
 
+            {/* [MODIFICADO] SECCIÓN DE EDICIÓN DE DETALLES DEL FORMULARIO */}
+            <div className="grid gap-6 bg-white p-6 rounded-lg border shadow-sm">
+
+                {/* Banner */}
+                <div className="space-y-2">
+                    <Label>Imagen de Banner (Opcional)</Label>
+                    <ImageUploader
+                        value={bannerUrl}
+                        onChange={(url) => {
+                            setBannerUrl(url);
+                            handleUpdateMetadata({ bannerImageUrl: url }); // Guardado automático al subir
+                        }}
+                    />
+                </div>
+
+                {/* Título y Descripción */}
+                <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="form-title">Título del Examen / Encuesta</Label>
+                        <Input
+                            id="form-title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            onBlur={() => handleUpdateMetadata({ title })} // Guardado al salir del input
+                            className="font-bold text-lg"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="form-desc">Descripción</Label>
+                        <Textarea
+                            id="form-desc"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            onBlur={() => handleUpdateMetadata({ description })} // Guardado al salir
+                            rows={3}
+                            className="resize-none"
+                            placeholder="Instrucciones para el usuario..."
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* CONSTRUCTOR DE PREGUNTAS */}
             <QuestionBuilder questions={questions} setQuestions={setQuestions} />
         </div>
     )

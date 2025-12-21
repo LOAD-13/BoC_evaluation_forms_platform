@@ -58,6 +58,8 @@ export default async function EditFormPage({ params }: { params: Promise<{ formI
                 initialStatus={form.status}
                 initialTitle={form.title}
                 initialQuestions={mappedQuestions}
+                initialDescription={form.description || ""}
+                initialBannerUrl={form.bannerImageUrl}
             />
         </div>
     )
