@@ -6,14 +6,20 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { Trash2, PlusCircle, X } from "lucide-react"
+import { Trash2, PlusCircle, X, CheckCircle2 } from "lucide-react"
+
+export interface QuestionOption {
+    text: string;
+    isCorrect: boolean;
+}
 
 export interface Question {
     id: string | number;
     text: string;
     type: "text" | "multiple" | "true_false";
     required: boolean;
-    options?: string[];
+    points: number; // Mapped to 'score' in DB
+    options?: QuestionOption[];
 }
 
 interface QuestionBuilderProps {
@@ -24,7 +30,7 @@ interface QuestionBuilderProps {
 export default function QuestionBuilder({ questions, setQuestions }: QuestionBuilderProps) {
 
     const addQuestion = () => {
-        setQuestions([...questions, { id: Date.now(), text: "", type: "text", required: false, options: [] }])
+        setQuestions([...questions, { id: Date.now(), text: "", type: "text", required: true, points: 1, options: [] }])
     }
 
     const updateQuestion = (id: string | number, field: keyof Question, value: any) => {
@@ -34,19 +40,31 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
     const addOption = (qId: string | number) => {
         setQuestions(questions.map(q => {
             if (q.id === qId) {
-                // Aseguramos que options esté inicializado
                 const currentOptions = q.options || [];
-                return { ...q, options: [...currentOptions, ""] }
+                return { ...q, options: [...currentOptions, { text: "", isCorrect: false }] }
             }
             return q;
         }));
     }
 
-    const updateOption = (qId: string | number, optIndex: number, value: string) => {
+    const updateOptionText = (qId: string | number, optIndex: number, text: string) => {
         setQuestions(questions.map(q => {
             if (q.id === qId && q.options) {
                 const newOptions = [...q.options];
-                newOptions[optIndex] = value;
+                newOptions[optIndex] = { ...newOptions[optIndex], text };
+                return { ...q, options: newOptions }
+            }
+            return q;
+        }));
+    }
+
+    const toggleOptionCorrectness = (qId: string | number, optIndex: number) => {
+        setQuestions(questions.map(q => {
+            if (q.id === qId && q.options) {
+                const newOptions = [...q.options];
+                // Para simplificar, permitimos múltiples correctas o una sola. 
+                // Aquí invertimos el valor actual.
+                newOptions[optIndex] = { ...newOptions[optIndex], isCorrect: !newOptions[optIndex].isCorrect };
                 return { ...q, options: newOptions }
             }
             return q;
@@ -73,8 +91,8 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                         </Button>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
+                        <div className="grid gap-4 md:grid-cols-12">
+                            <div className="space-y-2 md:col-span-8">
                                 <Label>Texto de la pregunta</Label>
                                 <Input
                                     placeholder="¿Qué deseas preguntar?"
@@ -82,8 +100,8 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                     onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Tipo de Respuesta</Label>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Tipo</Label>
                                 <Select
                                     value={q.type}
                                     onValueChange={(val) => updateQuestion(q.id, 'type', val)}
@@ -92,9 +110,18 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                     <SelectContent>
                                         <SelectItem value="text">Texto Corto</SelectItem>
                                         <SelectItem value="multiple">Opción Múltiple</SelectItem>
-                                        <SelectItem value="true_false">Verdadero / Falso</SelectItem>
+                                        <SelectItem value="true_false">V / F</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Puntos (Score)</Label>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    value={q.points}
+                                    onChange={(e) => updateQuestion(q.id, 'points', Number(e.target.value))}
+                                />
                             </div>
                         </div>
 
@@ -102,15 +129,24 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                         {q.type === 'multiple' && (
                             <div className="space-y-2 bg-muted/30 p-4 rounded-md">
                                 <Label>Opciones de respuesta</Label>
+                                <p className="text-xs text-muted-foreground mb-2">Marca el círculo verde para indicar la respuesta correcta.</p>
                                 <div className="space-y-2">
                                     {q.options?.map((opt, optIndex) => (
                                         <div key={optIndex} className="flex items-center gap-2">
-                                            <div className="h-4 w-4 rounded-full border border-primary flex-shrink-0" />
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className={`h-8 w-8 rounded-full ${opt.isCorrect ? 'text-green-600 bg-green-100' : 'text-gray-300'}`}
+                                                onClick={() => toggleOptionCorrectness(q.id, optIndex)}
+                                                title="Marcar como correcta"
+                                            >
+                                                <CheckCircle2 className="h-5 w-5" />
+                                            </Button>
                                             <Input
                                                 className="h-8"
                                                 placeholder={`Opción ${optIndex + 1}`}
-                                                value={opt}
-                                                onChange={(e) => updateOption(q.id, optIndex, e.target.value)}
+                                                value={opt.text}
+                                                onChange={(e) => updateOptionText(q.id, optIndex, e.target.value)}
                                             />
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOption(q.id, optIndex)}>
                                                 <X className="h-4 w-4 text-muted-foreground hover:text-red-500" />

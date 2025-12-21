@@ -29,9 +29,8 @@ export const formService = {
 
     async saveQuestions(formId: string, questions: any[]) {
         return await prisma.$transaction(async (tx) => {
-            // 1. Borrar preguntas existentes (Estrategia: Full Replace para mantener consistencia simple)
-            // CUIDADO: Esto borra respuestas asociadas si ya el formulario fue respondido.
-            // Idealmente, bloquear edición si ya hay respuestas o usar 'soft delete'.
+            // 1. Borrar preguntas existentes (Estrategia: Full Replace)
+            // Esto borra respuestas asociadas si ya el formulario fue respondido y no hay protección en BD.
             await tx.question.deleteMany({
                 where: { formId }
             });
@@ -44,16 +43,17 @@ export const formService = {
                         questionText: q.text,
                         questionType: q.type,
                         required: q.required,
+                        score: q.points || 0, // Persistir puntaje
                     }
                 });
 
                 // 3. Crear opciones si es multiple choice
                 if (q.options && q.options.length > 0) {
                     await tx.questionOption.createMany({
-                        data: q.options.map((optText: string) => ({
+                        data: q.options.map((opt: any) => ({
                             questionId: createdQuestion.id,
-                            optionText: optText,
-                            isCorrect: false // Por defecto, lógica de examen requeriría UI para marcar correcta
+                            optionText: typeof opt === 'string' ? opt : opt.text, // Compatibilidad si llega como string o objeto
+                            isCorrect: typeof opt === 'string' ? false : (opt.isCorrect || false)
                         }))
                     });
                 }
