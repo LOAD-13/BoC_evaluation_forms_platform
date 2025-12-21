@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation"; // Agregado useRouter
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FileText, Users, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, Users, Settings, LogOut } from "lucide-react"; // Agregado LogOut
+import { Button } from "@/components/ui/button"; // Agregado
+import { useToast } from "@/hooks/use-toast"; // Agregado
 
 interface SidebarProps {
     userRole: string;
@@ -15,7 +17,7 @@ const routes = [
         icon: LayoutDashboard,
         href: "/dashboard",
         color: "text-sky-500",
-        adminOnly: true, // El usuario pidió que el dashboard de métricas sea solo para admins
+        adminOnly: true,
     },
     {
         label: "Mis Formularios",
@@ -40,6 +42,20 @@ const routes = [
 
 export default function Sidebar({ userRole }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter(); // Hook para redirigir
+    const { toast } = useToast(); // Hook para notificaciones
+
+    // Función para cerrar sesión
+    const handleLogout = async () => {
+        try {
+            await fetch("/api/auth/logout", { method: "POST" });
+            toast({ title: "Sesión cerrada correctamente" });
+            router.push("/login");
+            router.refresh();
+        } catch (error) {
+            toast({ title: "Error al cerrar sesión", variant: "destructive" });
+        }
+    };
 
     return (
         <div className="space-y-4 py-4 flex flex-col h-full bg-[#111827] text-white">
@@ -72,6 +88,18 @@ export default function Sidebar({ userRole }: SidebarProps) {
                         );
                     })}
                 </div>
+            </div>
+
+            {/* SECCIÓN DE LOGOUT AGREGADA AL FINAL */}
+            <div className="px-3 py-2 border-t border-gray-700">
+                <Button
+                    onClick={handleLogout}
+                    variant="ghost"
+                    className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-white/10"
+                >
+                    <LogOut className="h-5 w-5 mr-3" />
+                    Cerrar Sesión
+                </Button>
             </div>
         </div>
     );
