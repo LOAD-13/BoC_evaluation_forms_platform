@@ -16,9 +16,17 @@ export default async function EditFormPage({ params }: { params: Promise<{ formI
 
     const { formId } = await params
 
-    // 2. Fetch Form Data
+    // 2. Fetch Form Data with Questions
     const form = await prisma.form.findUnique({
-        where: { id: formId }
+        where: { id: formId },
+        include: {
+            questions: {
+                orderBy: { id: 'asc' }, // Or createdAt if you prefer
+                include: {
+                    options: true
+                }
+            }
+        }
     })
 
     if (!form) {
@@ -30,12 +38,26 @@ export default async function EditFormPage({ params }: { params: Promise<{ formI
         return <div className="p-8 text-center text-red-500">No tienes permisos para editar este formulario</div>
     }
 
+    // Mapear datos al formato de UI
+    const mappedQuestions = form.questions.map(q => ({
+        id: q.id,
+        text: q.questionText,
+        type: q.questionType as "text" | "multiple" | "true_false",
+        required: q.required,
+        points: Number(q.score) || 0,
+        options: q.options.map(o => ({
+            text: o.optionText,
+            isCorrect: o.isCorrect
+        }))
+    }))
+
     return (
         <div className="max-w-4xl mx-auto py-8">
             <FormEditor
                 formId={formId}
                 initialStatus={form.status}
                 initialTitle={form.title}
+                initialQuestions={mappedQuestions}
             />
         </div>
     )
