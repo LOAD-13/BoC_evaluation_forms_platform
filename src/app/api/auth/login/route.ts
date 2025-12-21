@@ -1,85 +1,87 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
-import { verifyPassword } from '@/lib/auth/hash';
-import { signJWT } from '@/lib/auth/jwt';
-import { z } from 'zod';
-import { cookies } from 'next/headers'; // Para guardar la sesión automáticamente
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { prisma } from "@/lib/db/prisma";
+import { compareHash } from "@/lib/auth/hash";
+import { signJwt } from "@/lib/auth/jwt"; // FIX: Cambiado de signJWT a signJwt
+import { loginSchema } from "@/features/auth/schemas/authSchemas";
 
-const loginSchema = z.object({
-    email: z.string().email("Correo inválido"),
-    password: z.string().min(1, "La contraseña es obligatoria"),
-});
-
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
     try {
-        const body = await request.json();
+        const body = await req.json();
 
-        // 1. Validar datos de entrada
-        const result = loginSchema.safeParse(body);
-        if (!result.success) {
+        // 1. Validar esquema
+        const validation = loginSchema.safeParse(body);
+        if (!validation.success) {
             return NextResponse.json(
-                { error: result.error.issues[0].message },
+                { error: "Datos inválidos", details: validation.error.format() },
                 { status: 400 }
             );
         }
 
-        const { email, password } = result.data;
+        const { email, password } = validation.data;
 
-        // 2. Buscar usuario en la BD
+        // 2. Buscar usuario
         const user = await prisma.user.findUnique({
             where: { email },
+            include: {
+                roles: {
+                    include: {
+                        role: true
+                    }
+                }
+            }
         });
 
         if (!user) {
-            // Por seguridad, no decimos si el usuario no existe o la contraseña está mal
             return NextResponse.json(
-                { error: 'Credenciales inválidas' },
+                { error: "Credenciales incorrectas" },
                 { status: 401 }
             );
         }
 
-        // 3. Verificar contraseña
-        const isValidPassword = await verifyPassword(password, user.passwordHash);
-
-        if (!isValidPassword) {
+        // 3. Verificar contraseña (usando passwordHash de la BD)
+        const isPasswordCorrect = await compareHash(password, user.passwordHash);
+        if (!isPasswordCorrect) {
             return NextResponse.json(
-                { error: 'Credenciales inválidas' },
+                { error: "Credenciales incorrectas" },
                 { status: 401 }
             );
         }
 
-        // 4. Si todo está bien, generamos el token
-        const token = await signJWT({
+        // Determinar rol (tomamos el primero o USER por defecto)
+        const userRole = user.roles.length > 0 ? user.roles[0].role.name : 'USER';
+
+        // 4. Generar el token (FIX: usar signJwt)
+        const token = await signJwt({
             id: user.id,
             email: user.email,
-            fullName: user.fullName,
-            role: 'user' // Aquí podrías agregar lógica para roles reales
+            role: userRole,
         });
 
-        // 5. Guardamos el token en una Cookie HTTPOnly (Más seguro que localStorage)
+        // 5. Configurar la cookie (FIX: cookies() es asíncrono en Next 16)
         const cookieStore = await cookies();
-        cookieStore.set('auth_token', token, {
-            httpOnly: true, // No accesible por JavaScript del navegador (anti-XSS)
-            secure: process.env.NODE_ENV === 'production', // Solo HTTPS en prod
-            sameSite: 'strict',
-            maxAge: 60 * 60 * 24, // 1 día en segundos
-            path: '/',
+        cookieStore.set("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24, // 1 día
         });
 
-        // 6. Respondemos éxito (pero sin devolver el token en el JSON, ya va en la cookie)
         return NextResponse.json({
-            message: 'Inicio de sesión exitoso',
+            message: "Login exitoso",
             user: {
                 id: user.id,
                 email: user.email,
                 fullName: user.fullName,
+                role: userRole,
             }
         });
 
     } catch (error) {
-        console.error('Error en login:', error);
+        console.error("Error en login:", error);
         return NextResponse.json(
-            { error: 'Error interno del servidor' },
+            { error: "Error interno del servidor" },
             { status: 500 }
         );
     }
