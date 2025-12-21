@@ -7,11 +7,15 @@ import { z } from "zod";
 // Validación de entrada para guardar preguntas
 const saveQuestionsSchema = z.array(
     z.object({
-        id: z.string().or(z.number()).optional(), // Puede venir un ID temporal (number) o UUID (string)
+        id: z.string().or(z.number()).optional(),
         text: z.string().min(1, "El texto de la pregunta es obligatorio"),
         type: z.enum(["text", "multiple", "true_false"]),
         required: z.boolean(),
-        options: z.array(z.string()).optional(), // Opciones para questions de tipo 'multiple'
+        points: z.number().optional(), // Agregar validación para puntos
+        options: z.array(z.object({
+            text: z.string(),
+            isCorrect: z.boolean().optional()
+        })).optional(),
     })
 );
 

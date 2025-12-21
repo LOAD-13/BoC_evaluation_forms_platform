@@ -20,9 +20,10 @@ interface FormEditorProps {
     formId: string
     initialStatus: string // O FormStatus
     initialTitle: string
+    initialQuestions?: Question[]
 }
 
-export default function FormEditor({ formId, initialStatus, initialTitle }: FormEditorProps) {
+export default function FormEditor({ formId, initialStatus, initialTitle, initialQuestions }: FormEditorProps) {
     const { toast } = useToast()
     const router = useRouter()
 
@@ -30,9 +31,12 @@ export default function FormEditor({ formId, initialStatus, initialTitle }: Form
     const [isLoading, setIsLoading] = useState(false)
     const [isSavingStatus, setIsSavingStatus] = useState(false)
 
-    const [questions, setQuestions] = useState<Question[]>([
-        { id: Date.now(), text: "", type: "text", required: false, options: [] }
-    ])
+    // Si vienen preguntas, usamos esas. Si no, una por defecto vacía.
+    const [questions, setQuestions] = useState<Question[]>(
+        initialQuestions && initialQuestions.length > 0
+            ? initialQuestions
+            : [{ id: Date.now(), text: "", type: "text", required: false, options: [] }]
+    )
 
     const handleStatusChange = async (newStatus: FormStatus) => {
         setIsSavingStatus(true)
