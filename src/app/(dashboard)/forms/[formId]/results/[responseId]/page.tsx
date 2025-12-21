@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { CheckCircle, XCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button"
 
 export default async function ResponseDetailPage({
@@ -115,40 +116,78 @@ export default async function ResponseDetailPage({
                 {response.form.questions.map((q, index) => {
                     const userAnswer = answersMap.get(q.id);
 
-                    // Determine correctness for styling
-                    // Logic:
-                    // - If User Selected Option matches Question Option where isCorrect=true -> Correct
-                    // - Else -> Incorrect
-
-                    // Find the correct option implementation details
+                    // Buscar opción correcta y seleccionada
                     const correctOption = q.options.find(o => o.isCorrect);
                     const userSelectedOptionId = userAnswer?.selectedOptionId;
 
-                    const isCorrect = correctOption?.id === userSelectedOptionId;
+                    // --- NUEVA LÓGICA UNIFICADA ---
+                    let isCorrect = false;
+                    let userAnswerText = "Sin respuesta";
 
-                    // If open text question, we might not have auto-eval logic yet visible here simply. Assuming multiple choice for detailed coloring primarily.
-
-                    let cardClass = "border";
-                    if (q.questionType !== 'text') {
-                        cardClass = isCorrect ? "border-green-200 bg-green-50/30" : "border-red-200 bg-red-50/30";
+                    if (
+                        q.questionType === "multiple" ||
+                        q.questionType === "true_false" ||
+                        q.questionType === "MULTIPLE_CHOICE" ||
+                        q.questionType === "TRUE_FALSE"
+                    ) {
+                        const selectedOption = q.options.find(
+                            (opt) => opt.id === userSelectedOptionId
+                        );
+                        userAnswerText = selectedOption?.optionText || "No seleccionó nada";
+                        isCorrect = selectedOption?.isCorrect || false;
+                    } else if (
+                        q.questionType === "text" ||
+                        q.questionType === "OPEN_ENDED"
+                    ) {
+                        userAnswerText = userAnswer?.answerText || "";
+                        isCorrect = true; // las abiertas las marcas como neutras/correctas
+                    } else if (
+                        q.questionType === "scale" ||
+                        q.questionType === "SCALE"
+                    ) {
+                        // --- BLOQUE NUEVO PARA ESCALA ---
+                        userAnswerText = userAnswer?.answerText
+                            ? `Valor seleccionado: ${userAnswer.answerText}`
+                            : "Sin respuesta";
+                        isCorrect = true; // opinión, no se considera incorrecta
                     }
 
+                    // Si la pregunta es de opinión (0 puntos), usamos estilo neutro
+                    const isOpinion =
+                        q.score === null || Number(q.score) === 0;
+
+                    const cardColorClass = isOpinion
+                        ? "border-gray-200 bg-white"
+                        : isCorrect
+                            ? "border-green-200 bg-green-50/30"
+                            : "border-red-200 bg-red-50/30";
+
                     return (
-                        <Card key={q.id} className={cardClass}>
+                        <Card key={q.id} className={cardColorClass}>
                             <CardContent className="pt-6 space-y-4">
                                 <div className="flex justify-between items-start">
                                     <h3 className="font-semibold text-lg flex gap-2">
-                                        <span className="text-muted-foreground">{index + 1}.</span>
+                                        <span className="text-muted-foreground">
+                                            {index + 1}.
+                                        </span>
                                         {q.questionText}
                                     </h3>
-                                    {q.questionType !== 'text' && (
+
+                                    {/* Badge Correcto/Incorrecto solo si no es opinión */}
+                                    {q.questionType !== "text" && !isOpinion && (
                                         <div>
                                             {isCorrect ? (
-                                                <Badge variant="outline" className="text-green-700 border-green-300 bg-green-100 flex gap-1">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-green-700 border-green-300 bg-green-100 flex gap-1"
+                                                >
                                                     <CheckCircle className="h-3 w-3" /> Correcto
                                                 </Badge>
                                             ) : (
-                                                <Badge variant="outline" className="text-red-700 border-red-300 bg-red-100 flex gap-1">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-red-700 border-red-300 bg-red-100 flex gap-1"
+                                                >
                                                     <XCircle className="h-3 w-3" /> Incorrecto
                                                 </Badge>
                                             )}
@@ -156,48 +195,96 @@ export default async function ResponseDetailPage({
                                     )}
                                 </div>
 
-                                {/* Render Options */}
-                                {q.questionType !== 'text' ? (
-                                    <div className="space-y-2 pl-4">
-                                        {q.options.map(opt => {
-                                            const isSelected = opt.id === userSelectedOptionId;
-                                            const isTheCorrectOne = opt.isCorrect;
+                                {/* Render Options / Texto / Escala */}
+                                {q.questionType !== "text" && q.questionType !== "OPEN_ENDED" ? (
+                                    q.questionType === "scale" || q.questionType === "SCALE" ? (
+                                        // --- SOLO ESCALA: bolitas, sin tocar multiple choice ---
+                                        <div className="mt-3 p-4 bg-slate-50 rounded-lg border flex flex-col gap-2">
+                                            <span className="text-xs font-bold text-gray-500 uppercase">
+                                                Selección del usuario:
+                                            </span>
+                                            <div className="flex items-center gap-3">
+                                                {[1, 2, 3, 4, 5].map((val) => {
+                                                    // OJO: aquí usamos la respuesta cruda, sin "Valor seleccionado: ..."
+                                                    const rawValue = userAnswer?.answerText || "";
+                                                    const isSelected = rawValue === val.toString();
 
-                                            let optionClass = "p-3 rounded-md border flex justify-between items-center ";
+                                                    return (
+                                                        <div
+                                                            key={val}
+                                                            className={cn(
+                                                                "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border transition-all",
+                                                                isSelected
+                                                                    ? "bg-blue-600 text-white border-blue-600 scale-110 shadow-md"
+                                                                    : "bg-white text-gray-400 border-gray-200"
+                                                            )}
+                                                        >
+                                                            {val}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-sm text-gray-500 mt-1 italic">
+                                                {userAnswer?.answerText
+                                                    ? `Valoró con un ${userAnswer.answerText}/5`
+                                                    : "No respondió"}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        // --- AQUÍ SIGUE TU LÓGICA ACTUAL DE OPCIONES (NO LA CAMBIES) ---
+                                        <div className="space-y-2 pl-4">
+                                            {q.options.map((opt) => {
+                                                const isSelected = opt.id === userSelectedOptionId;
+                                                const isTheCorrectOne = opt.isCorrect;
 
-                                            if (isSelected && isTheCorrectOne) {
-                                                optionClass += "bg-green-100 border-green-300 text-green-900 font-medium"; // User picked right
-                                            } else if (isSelected && !isTheCorrectOne) {
-                                                optionClass += "bg-red-100 border-red-300 text-red-900 font-medium"; // User picked wrong
-                                            } else if (!isSelected && isTheCorrectOne) {
-                                                optionClass += "bg-green-50 border-green-200 text-green-800 border-dashed"; // The right answer (missed)
-                                            } else {
-                                                optionClass += "bg-white border-slate-100 text-slate-500 opacity-60"; // Irrelevant option
-                                            }
+                                                let optionClass =
+                                                    "p-3 rounded-md border flex justify-between items-center ";
 
-                                            return (
-                                                <div key={opt.id} className={optionClass}>
-                                                    <span>{opt.optionText}</span>
-                                                    {isSelected && <span className="text-xs font-bold">(Tu respuesta)</span>}
-                                                    {!isSelected && isTheCorrectOne && <span className="text-xs">(Respuesta Correcta)</span>}
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
+                                                if (isSelected && isTheCorrectOne) {
+                                                    optionClass +=
+                                                        "bg-green-100 border-green-300 text-green-900 font-medium";
+                                                } else if (isSelected && !isTheCorrectOne) {
+                                                    optionClass +=
+                                                        "bg-red-100 border-red-300 text-red-900 font-medium";
+                                                } else if (!isSelected && isTheCorrectOne) {
+                                                    optionClass +=
+                                                        "bg-green-50 border-green-200 text-green-800 border-dashed";
+                                                } else {
+                                                    optionClass +=
+                                                        "bg-white border-slate-100 text-slate-500 opacity-60";
+                                                }
+
+                                                return (
+                                                    <div key={opt.id} className={optionClass}>
+                                                        <span>{opt.optionText}</span>
+                                                        {isSelected && (
+                                                            <span className="text-xs font-bold">(Tu respuesta)</span>
+                                                        )}
+                                                        {!isSelected && isTheCorrectOne && (
+                                                            <span className="text-xs">(Respuesta Correcta)</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )
                                 ) : (
+                                    // Pregunta abierta (igual que ya la tenías)
                                     <div className="bg-slate-50 p-4 rounded-md italic text-slate-700">
                                         {userAnswer?.answerText || "Sin respuesta"}
                                     </div>
                                 )}
 
-                                {q.score && (
+
+                                {/* Valor en puntos (si no es opinión) */}
+                                {q.score && !isOpinion && (
                                     <div className="text-xs text-right text-muted-foreground">
                                         Valor: {Number(q.score)} pts
                                     </div>
                                 )}
                             </CardContent>
                         </Card>
-                    )
+                    );
                 })}
             </div>
         </div>
