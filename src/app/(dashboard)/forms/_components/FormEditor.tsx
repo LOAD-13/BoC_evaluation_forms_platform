@@ -1,13 +1,14 @@
 "use client"
 import React, { useState } from "react"
+import Link from "next/link" // <--- 1. IMPORT AGREGADO
 import QuestionBuilder, { Question } from "./QuestionBuilder"
 import AssignmentManager from "./AssignmentManager"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import ImageUploader from "@/components/forms/ImageUploader" // [IMPORTANTE] Importar el uploader
-import { Save, Loader2 } from "lucide-react"
+import ImageUploader from "@/components/forms/ImageUploader"
+import { Save, Loader2, Eye } from "lucide-react" // <--- 2. ICONO 'Eye' AGREGADO
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import {
@@ -24,8 +25,8 @@ interface FormEditorProps {
     formId: string
     initialStatus: string
     initialTitle: string
-    initialDescription?: string // Agregado
-    initialBannerUrl?: string | null // Agregado
+    initialDescription?: string
+    initialBannerUrl?: string | null
     initialQuestions?: Question[]
 }
 
@@ -43,7 +44,7 @@ export default function FormEditor({
     const [status, setStatus] = useState<FormStatus>(initialStatus as FormStatus)
     const [isLoading, setIsLoading] = useState(false)
 
-    // [MODIFICADO] Estados para metadatos del formulario
+    // Estados para metadatos del formulario
     const [title, setTitle] = useState(initialTitle)
     const [description, setDescription] = useState(initialDescription || "")
     const [bannerUrl, setBannerUrl] = useState(initialBannerUrl)
@@ -54,7 +55,7 @@ export default function FormEditor({
             : [{ id: Date.now(), text: "", type: "text", required: false, options: [], points: 1 }]
     )
 
-    // Función unificada para guardar los metadatos (Título, Desc, Banner, Estado)
+    // Función unificada para guardar los metadatos
     const handleUpdateMetadata = async (fieldData: any) => {
         try {
             const response = await fetch(`/api/forms/${formId}`, {
@@ -65,7 +66,6 @@ export default function FormEditor({
 
             if (!response.ok) throw new Error("Error al actualizar")
 
-            // Si cambiamos el estado, actualizamos el estado local
             if (fieldData.status) setStatus(fieldData.status)
 
             toast({ title: "Guardado correctamente" })
@@ -96,7 +96,7 @@ export default function FormEditor({
 
     return (
         <div className="space-y-8 max-w-5xl mx-auto pb-20">
-            {/* ENCABEZADO DE GESTIÓN (Estado y Botón Guardar) */}
+            {/* ENCABEZADO DE GESTIÓN */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b pb-4 sticky top-0 bg-background/95 backdrop-blur z-10 py-4">
                 <div className="flex items-center gap-3">
                     <Badge variant={status === FormStatus.PUBLISHED ? "default" : "secondary"} className="text-sm px-3 py-1">
@@ -120,6 +120,15 @@ export default function FormEditor({
                         </SelectContent>
                     </Select>
 
+                    {/* --- 3. AQUÍ ESTÁ EL BOTÓN DE PREVIEW --- */}
+                    <Link href={`/forms/${formId}/preview`} target="_blank">
+                        <Button variant="outline" size="sm" title="Vista Previa">
+                            <Eye className="h-4 w-4 mr-2" />
+                            Vista Previa
+                        </Button>
+                    </Link>
+                    {/* -------------------------------------- */}
+
                     <AssignmentManager formId={formId} />
 
                     <Button onClick={handleSaveQuestions} disabled={isLoading}>
@@ -129,7 +138,7 @@ export default function FormEditor({
                 </div>
             </div>
 
-            {/* [MODIFICADO] SECCIÓN DE EDICIÓN DE DETALLES DEL FORMULARIO */}
+            {/* SECCIÓN DE EDICIÓN DE DETALLES DEL FORMULARIO */}
             <div className="grid gap-6 bg-white p-6 rounded-lg border shadow-sm">
 
                 {/* Banner */}
@@ -139,7 +148,7 @@ export default function FormEditor({
                         value={bannerUrl}
                         onChange={(url) => {
                             setBannerUrl(url);
-                            handleUpdateMetadata({ bannerImageUrl: url }); // Guardado automático al subir
+                            handleUpdateMetadata({ bannerImageUrl: url });
                         }}
                     />
                 </div>
@@ -152,7 +161,7 @@ export default function FormEditor({
                             id="form-title"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            onBlur={() => handleUpdateMetadata({ title })} // Guardado al salir del input
+                            onBlur={() => handleUpdateMetadata({ title })}
                             className="font-bold text-lg"
                         />
                     </div>
@@ -162,7 +171,7 @@ export default function FormEditor({
                             id="form-desc"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            onBlur={() => handleUpdateMetadata({ description })} // Guardado al salir
+                            onBlur={() => handleUpdateMetadata({ description })}
                             rows={3}
                             className="resize-none"
                             placeholder="Instrucciones para el usuario..."
