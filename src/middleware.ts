@@ -17,9 +17,15 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
+    // Proteger rutas de ADMIN
+    const isAdminRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/users');
+    if (isAdminRoute && user?.role !== 'ADMIN') {
+        return NextResponse.redirect(new URL('/forms', request.url));
+    }
+
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/dashboard/:path*', '/forms/:path*'],
+    matcher: ['/dashboard/:path*', '/forms/:path*', '/users/:path*'],
 };

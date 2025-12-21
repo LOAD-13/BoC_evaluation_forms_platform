@@ -96,7 +96,7 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                 <Label>Texto de la pregunta</Label>
                                 <Input
                                     placeholder="¿Qué deseas preguntar?"
-                                    value={q.text}
+                                    value={q.text || ""}
                                     onChange={(e) => updateQuestion(q.id, 'text', e.target.value)}
                                 />
                             </div>
@@ -119,7 +119,7 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                 <Input
                                     type="number"
                                     min={0}
-                                    value={q.points}
+                                    value={q.points ?? 0}
                                     onChange={(e) => updateQuestion(q.id, 'points', Number(e.target.value))}
                                 />
                             </div>
@@ -145,7 +145,7 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                             <Input
                                                 className="h-8"
                                                 placeholder={`Opción ${optIndex + 1}`}
-                                                value={opt.text}
+                                                value={opt.text || ""}
                                                 onChange={(e) => updateOptionText(q.id, optIndex, e.target.value)}
                                             />
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOption(q.id, optIndex)}>

@@ -15,6 +15,7 @@ const routes = [
         icon: LayoutDashboard,
         href: "/dashboard",
         color: "text-sky-500",
+        adminOnly: true, // El usuario pidió que el dashboard de métricas sea solo para admins
     },
     {
         label: "Mis Formularios",

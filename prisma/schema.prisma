@@ -23,6 +23,7 @@ model User {
   roles         UserRole[]
   formsOwned    Form[]         @relation("FormOwner")
   scores        Score[]
+  assignments   Assignment[]
   auditLogs     AuditLog[]
   
   @@map("users")
@@ -71,6 +72,7 @@ model Form {
   invitations     Invitation[]
   responses       Response[]
   scores          Score[]
+  assignments     Assignment[]
   
   @@map("forms")
 }
@@ -190,6 +192,22 @@ model Score {
 // ============================================
 // AUDIT
 // ============================================
+
+
+model Assignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  formId     String   @map("form_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamp(6)
+  status     String   @default("PENDING") @db.VarChar(20) // PENDING, COMPLETED
+
+  // Relations
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([formId, userId]) // Prevent duplicate assignments
+  @@map("assignments")
+}
 
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
