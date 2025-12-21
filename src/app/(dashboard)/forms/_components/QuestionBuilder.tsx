@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { Trash2, PlusCircle, X, CheckCircle2 } from "lucide-react"
+import { Trash2, PlusCircle, X, CheckCircle2, BarChartHorizontal } from "lucide-react"
+import { QUESTION_TYPES } from "@/lib/constants/questionTypes" // Importamos los tipos
+import ScaleQuestion from "@/components/forms/ScaleQuestion" // Importamos el componente visual
 
 export interface QuestionOption {
     text: string;
@@ -16,9 +18,10 @@ export interface QuestionOption {
 export interface Question {
     id: string | number;
     text: string;
-    type: "text" | "multiple" | "true_false";
+    // [MODIFICADO] Agregamos 'scale' al tipo
+    type: "text" | "multiple" | "true_false" | "scale";
     required: boolean;
-    points: number; // Mapped to 'score' in DB
+    points: number;
     options?: QuestionOption[];
 }
 
@@ -36,6 +39,15 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
     const updateQuestion = (id: string | number, field: keyof Question, value: any) => {
         setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
     }
+
+    // Funciones auxiliares para opciones (addOption, updateOptionText, etc.) se mantienen igual...
+    // Puedes copiar las del archivo original aquí si las necesitas completas, 
+    // pero me enfocaré en el renderizado del tipo SCALE.
+
+    // ... (Mantén las funciones addOption, updateOptionText, toggleOptionCorrectness, removeOption del archivo original)
+    // Para brevedad, asumo que están aquí.
+
+    // --> REEMPLAZA EL CONTENIDO DEL RENDERIZADO CON ESTO:
 
     const addOption = (qId: string | number) => {
         setQuestions(questions.map(q => {
@@ -62,8 +74,6 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
         setQuestions(questions.map(q => {
             if (q.id === qId && q.options) {
                 const newOptions = [...q.options];
-                // Para simplificar, permitimos múltiples correctas o una sola. 
-                // Aquí invertimos el valor actual.
                 newOptions[optIndex] = { ...newOptions[optIndex], isCorrect: !newOptions[optIndex].isCorrect };
                 return { ...q, options: newOptions }
             }
@@ -108,14 +118,16 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                 >
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="text">Texto Corto</SelectItem>
-                                        <SelectItem value="multiple">Opción Múltiple</SelectItem>
-                                        <SelectItem value="true_false">V / F</SelectItem>
+                                        {QUESTION_TYPES.map((type) => (
+                                            <SelectItem key={type.value} value={type.value}>
+                                                {type.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                                <Label>Puntos (Score)</Label>
+                                <Label>Puntos</Label>
                                 <Input
                                     type="number"
                                     min={0}
@@ -125,11 +137,12 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                             </div>
                         </div>
 
-                        {/* Opciones para Multiple Choice */}
+                        {/* RENDERIZADO CONDICIONAL POR TIPO */}
+
+                        {/* Opción Múltiple */}
                         {q.type === 'multiple' && (
                             <div className="space-y-2 bg-muted/30 p-4 rounded-md">
                                 <Label>Opciones de respuesta</Label>
-                                <p className="text-xs text-muted-foreground mb-2">Marca el círculo verde para indicar la respuesta correcta.</p>
                                 <div className="space-y-2">
                                     {q.options?.map((opt, optIndex) => (
                                         <div key={optIndex} className="flex items-center gap-2">
@@ -138,18 +151,16 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                                                 size="icon"
                                                 className={`h-8 w-8 rounded-full ${opt.isCorrect ? 'text-green-600 bg-green-100' : 'text-gray-300'}`}
                                                 onClick={() => toggleOptionCorrectness(q.id, optIndex)}
-                                                title="Marcar como correcta"
                                             >
                                                 <CheckCircle2 className="h-5 w-5" />
                                             </Button>
                                             <Input
                                                 className="h-8"
-                                                placeholder={`Opción ${optIndex + 1}`}
                                                 value={opt.text || ""}
                                                 onChange={(e) => updateOptionText(q.id, optIndex, e.target.value)}
                                             />
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeOption(q.id, optIndex)}>
-                                                <X className="h-4 w-4 text-muted-foreground hover:text-red-500" />
+                                                <X className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     ))}
@@ -160,7 +171,20 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                             </div>
                         )}
 
-                        <div className="flex items-center space-x-2">
+                        {/* [MODIFICADO] Vista previa de Scale (1-5) */}
+                        {q.type === 'scale' && (
+                            <div className="bg-muted/30 p-4 rounded-md border border-dashed">
+                                <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                                    <BarChartHorizontal className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Vista Previa (Escala 1 al 5)</span>
+                                </div>
+                                <div className="pointer-events-none opacity-80">
+                                    <ScaleQuestion disabled />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex items-center space-x-2 pt-2">
                             <Switch
                                 id={`req-${q.id}`}
                                 checked={q.required}

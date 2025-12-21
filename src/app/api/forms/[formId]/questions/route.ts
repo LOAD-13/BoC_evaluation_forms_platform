@@ -9,7 +9,7 @@ const saveQuestionsSchema = z.array(
     z.object({
         id: z.string().or(z.number()).optional(),
         text: z.string().min(1, "El texto de la pregunta es obligatorio"),
-        type: z.enum(["text", "multiple", "true_false"]),
+        type: z.enum(["text", "multiple", "true_false", "scale"]),
         required: z.boolean(),
         points: z.number().optional(), // Agregar validación para puntos
         options: z.array(z.object({
