@@ -37,6 +37,18 @@ export async function POST(request: Request) {
 
         const hashedPassword = await hashPassword(password);
 
+        // Buscar el rol 'USER' para no depender de IDs hardcodeados (que suelen ser 1=ADMIN)
+        const userRole = await prisma.role.findUnique({
+            where: { name: 'USER' }
+        });
+
+        if (!userRole) {
+            return NextResponse.json(
+                { error: 'Error de configuración: Rol USER no encontrado' },
+                { status: 500 }
+            );
+        }
+
         const newUser = await prisma.user.create({
             data: {
                 email,
@@ -44,7 +56,7 @@ export async function POST(request: Request) {
                 fullName,
                 roles: {
                     create: {
-                        roleId: 1
+                        roleId: userRole.id
                     }
                 }
             },
