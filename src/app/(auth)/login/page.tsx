@@ -32,11 +32,11 @@ export default function LoginPage() {
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true);
         try {
-            // Limpiamos la URL por si quedó basura de intentos fallidos previos
+            // Limpiamos historial
             window.history.replaceState({}, '', window.location.pathname);
 
             const res = await fetch("/api/auth/login", {
-                method: "POST", // Forzamos POST
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(values),
             });
@@ -49,9 +49,19 @@ export default function LoginPage() {
 
             toast({ title: "Bienvenido", description: "Iniciando sesión..." });
 
-            // Redirigir según el rol
-            const targetPath = data.user.role === 'ADMIN' ? '/dashboard' : '/forms';
-            router.push(targetPath);
+            // --- [CAMBIO IMPORTANTE AQUÍ] ---
+            // Leemos si hay una URL de retorno pendiente
+            const params = new URLSearchParams(window.location.search);
+            const callbackUrl = params.get("callbackUrl");
+
+            if (callbackUrl) {
+                router.push(callbackUrl); // Volver al formulario
+            } else {
+                // Si no, ir al dashboard normal
+                const targetPath = data.user.role === 'ADMIN' ? '/dashboard' : '/forms';
+                router.push(targetPath);
+            }
+
             router.refresh();
 
         } catch (error: any) {
@@ -74,7 +84,6 @@ export default function LoginPage() {
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
-                        {/* Añadimos method="POST" para evitar el leak en la URL si el JS tarda en cargar */}
                         <form
                             onSubmit={form.handleSubmit(onSubmit)}
                             method="POST"

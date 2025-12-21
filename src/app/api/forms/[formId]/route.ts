@@ -3,6 +3,7 @@ import { verifyJwt } from "@/lib/auth/jwt"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { FormStatus } from "@/lib/constants/statusTypes"
+import { v4 as uuidv4 } from 'uuid'; // [NUEVO] Importante para generar el token
 
 // PATCH /api/forms/[formId]
 export async function PATCH(
@@ -23,6 +24,7 @@ export async function PATCH(
 
         const { status, title, description, bannerImageUrl } = body
 
+        // Verificar propiedad
         const form = await prisma.form.findUnique({
             where: { id: formId }
         })
@@ -33,8 +35,29 @@ export async function PATCH(
             return NextResponse.json({ error: "No tienes permisos" }, { status: 403 })
         }
 
+        // Validar status si se envía
         if (status && !Object.values(FormStatus).includes(status)) {
             return NextResponse.json({ error: "Estado inválido" }, { status: 400 })
+        }
+
+        // [NUEVO] Lógica de Publicación Automática
+        // Si el usuario cambia el estado a PUBLISHED, nos aseguramos de que exista una invitación
+        if (status === FormStatus.PUBLISHED) {
+            // Verificar si ya existe una invitación pública para este form
+            const existingInvitation = await prisma.invitation.findFirst({
+                where: { formId: formId }
+            });
+
+            // Si no existe, la creamos ahora mismo con un token único
+            if (!existingInvitation) {
+                await prisma.invitation.create({
+                    data: {
+                        formId: formId,
+                        token: uuidv4(), // Generamos el token único (ej: a1b2-c3d4...)
+                        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // Expira en 1 año por defecto
+                    }
+                });
+            }
         }
 
         const updatedForm = await prisma.form.update({
@@ -55,7 +78,7 @@ export async function PATCH(
     }
 }
 
-// [NUEVO] Método DELETE para eliminar formularios
+// Método DELETE para eliminar formularios
 export async function DELETE(
     req: Request,
     { params }: { params: Promise<{ formId: string }> }

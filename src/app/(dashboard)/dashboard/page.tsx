@@ -42,18 +42,25 @@ export default async function DashboardPage() {
     // Calcular respuestas de hoy
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
 
     const responsesToday = await prisma.response.count({
         where: {
-            startedAt: {
-                gte: startOfToday
+            finishedAt: {
+                gte: startOfToday,
+                lte: endOfToday,
+                not: null,            // asegura que la respuesta esté completada
             },
-            // Si no es admin, filtrar por mis formularios
-            ...(payload.role !== 'ADMIN' ? {
-                form: { ownerId: userId }
-            } : {})
-        }
+            // Si no es admin, filtrar por formularios del usuario
+            ...(payload.role !== "ADMIN"
+                ? {
+                    form: { ownerId: userId },
+                }
+                : {}),
+        },
     });
+
 
     // Calcular datos para el gráfico (Últimos 7 días)
     const sevenDaysAgo = new Date();
@@ -100,9 +107,8 @@ export default async function DashboardPage() {
     // Calcular total de respuestas recibidas
     const totalResponses = await prisma.response.count({
         where: {
-            form: {
-                ownerId: userId
-            }
+            form: { ownerId: userId },
+            finishedAt: { not: null } // <--- AGREGAR ESTA LÍNEA (Solo terminadas)
         }
     });
 
