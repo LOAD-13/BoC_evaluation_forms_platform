@@ -32,22 +32,33 @@ export default function LoginPage() {
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true);
         try {
+            // Limpiamos la URL por si quedó basura de intentos fallidos previos
+            window.history.replaceState({}, '', window.location.pathname);
+
             const res = await fetch("/api/auth/login", {
-                method: "POST",
+                method: "POST", // Forzamos POST
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(values),
             });
 
-            if (!res.ok) throw new Error("Credenciales incorrectas");
+            const data = await res.json();
 
-            // Asumimos que la API devuelve un token o cookie
-            toast({ title: "Bienvenido de nuevo" });
-            router.push("/dashboard");
-        } catch (error) {
+            if (!res.ok) {
+                throw new Error(data.error || "Credenciales incorrectas");
+            }
+
+            toast({ title: "Bienvenido", description: "Iniciando sesión..." });
+
+            // Redirigir según el rol
+            const targetPath = data.user.role === 'ADMIN' ? '/dashboard' : '/forms';
+            router.push(targetPath);
+            router.refresh();
+
+        } catch (error: any) {
             toast({
                 variant: "destructive",
                 title: "Error de acceso",
-                description: "Correo o contraseña incorrectos.",
+                description: error.message || "Correo o contraseña incorrectos.",
             });
         } finally {
             setIsLoading(false);
@@ -63,14 +74,21 @@ export default function LoginPage() {
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        {/* Añadimos method="POST" para evitar el leak en la URL si el JS tarda en cargar */}
+                        <form
+                            onSubmit={form.handleSubmit(onSubmit)}
+                            method="POST"
+                            className="space-y-4"
+                        >
                             <FormField
                                 control={form.control}
                                 name="email"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Correo electrónico</FormLabel>
-                                        <FormControl><Input placeholder="nombre@empresa.com" {...field} /></FormControl>
+                                        <FormControl>
+                                            <Input placeholder="nombre@empresa.com" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -81,14 +99,22 @@ export default function LoginPage() {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Contraseña</FormLabel>
-                                        <FormControl><Input type="password" {...field} /></FormControl>
+                                        <FormControl>
+                                            <Input type="password" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                             <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Ingresar
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Verificando...
+                                    </>
+                                ) : (
+                                    "Ingresar"
+                                )}
                             </Button>
                         </form>
                     </Form>

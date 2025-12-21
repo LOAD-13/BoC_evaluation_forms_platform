@@ -1,20 +1,20 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify } from "jose";
 
-// En producción, esto debe venir de una variable de entorno (.env)
-const SECRET_KEY = process.env.JWT_SECRET || 'clave-secreta-desarrollo-123';
-const key = new TextEncoder().encode(SECRET_KEY);
+const secret = new TextEncoder().encode(
+    process.env.JWT_SECRET || "secreto-de-desarrollo-muy-largo-y-seguro"
+);
 
-export async function signJWT(payload: any) {
+export async function signJwt(payload: any) { // signJwt en minúsculas
     return await new SignJWT(payload)
-        .setProtectedHeader({ alg: 'HS256' })
+        .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
-        .setExpirationTime('24h') // La sesión dura 24 horas
-        .sign(key);
+        .setExpirationTime("24h")
+        .sign(secret);
 }
 
-export async function verifyJWT(token: string) {
+export async function verifyJwt(token: string) { // verifyJwt en minúsculas
     try {
-        const { payload } = await jwtVerify(token, key);
+        const { payload } = await jwtVerify(token, secret);
         return payload;
     } catch (error) {
         return null;
