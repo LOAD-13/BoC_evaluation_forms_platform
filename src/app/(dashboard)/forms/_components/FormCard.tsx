@@ -1,14 +1,15 @@
 "use client"
 import Link from "next/link"
-import { useRouter } from "next/navigation" // [NUEVO]
+import { useRouter } from "next/navigation"
+import { useState } from "react" // [1. IMPORT NUEVO]
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Edit, BarChart2, Eye, PlayCircle, CheckCircle, Share2, AlertCircle, Trash2 } from "lucide-react"
+// [2. AGREGAR 'Copy' A LOS ICONOS]
+import { Edit, BarChart2, Eye, PlayCircle, CheckCircle, Share2, AlertCircle, Trash2, Copy } from "lucide-react"
 import { FormStatus, AssignmentStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/constants/statusTypes"
-import { useToast } from "@/hooks/use-toast" // [NUEVO]
+import { useToast } from "@/hooks/use-toast"
 
-// [NUEVO] Imports para el diálogo de confirmación
 import {
     AlertDialog,
     AlertDialogAction,
@@ -27,8 +28,10 @@ interface FormCardProps {
 }
 
 export default function FormCard({ form, role = 'USER' }: FormCardProps) {
-    const router = useRouter() // [NUEVO]
-    const { toast } = useToast() // [NUEVO]
+    const router = useRouter()
+    const { toast } = useToast()
+    // [3. ESTADO DE CARGA]
+    const [isCloning, setIsCloning] = useState(false)
 
     // Determinar estado a mostrar
     const formStatus = form.status as FormStatus;
@@ -51,7 +54,7 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
 
     const shadcnVariant = (badgeVariant === 'success' ? 'outline' : badgeVariant) as "default" | "secondary" | "destructive" | "outline";
 
-    // [NUEVO] Función para manejar el borrado
+    // Función para manejar el borrado
     const handleDelete = async () => {
         try {
             const res = await fetch(`/api/forms/${form.id}`, {
@@ -61,9 +64,33 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
             if (!res.ok) throw new Error("Error al eliminar");
 
             toast({ title: "Formulario eliminado", description: "El formulario ha sido borrado exitosamente." });
-            router.refresh(); // Recarga la lista
+            router.refresh();
         } catch (error) {
             toast({ title: "Error", description: "No se pudo eliminar el formulario.", variant: "destructive" });
+        }
+    };
+
+    // [4. FUNCIÓN PARA COPIAR]
+    const handleClone = async () => {
+        if (isCloning) return;
+        setIsCloning(true);
+        try {
+            const res = await fetch(`/api/forms/${form.id}/clone`, { method: "POST" });
+            if (!res.ok) throw new Error("Error al clonar");
+
+            const json = await res.json();
+
+            toast({ title: "Duplicado exitosamente", description: "Redirigiendo al nuevo formulario..." });
+
+            // Redirigir al editor de la copia
+            if (json.redirectUrl) {
+                router.push(json.redirectUrl);
+            } else {
+                router.refresh();
+            }
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo copiar el formulario.", variant: "destructive" });
+            setIsCloning(false);
         }
     };
 
@@ -81,7 +108,7 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
                         {new Date(form.createdAt).toLocaleDateString()}
                     </span>
                 </div>
-                <CardTitle className="line-clamp-1 mt-2">{form.title}</CardTitle>
+                <CardTitle className="line-clamp-1 mt-2" title={form.title}>{form.title}</CardTitle>
                 <CardDescription className="line-clamp-2 h-10">
                     {form.description || "Sin descripción"}
                 </CardDescription>
@@ -120,7 +147,6 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
 
             <CardFooter className="grid grid-cols-1 border-t pt-4 bg-slate-50/50">
                 {role === 'ADMIN' ? (
-                    // [MODIFICADO] Cambiamos el Grid por Flex para que quepan mejor los botones
                     <div className="flex items-center gap-2 w-full">
                         <Link href={`/forms/${form.id}/edit`} className="flex-1">
                             <Button variant="outline" size="sm" className="w-full">
@@ -129,16 +155,29 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
                         </Link>
 
                         <Link href={`/forms/${form.id}/results`} className="flex-1">
-                            <Button variant="ghost" size="sm" className="w-full">
+                            <Button variant="ghost" size="sm" className="w-full" title="Ver Resultados">
                                 <BarChart2 className="h-4 w-4" />
                             </Button>
                         </Link>
+
+                        {/* [5. BOTÓN COPIAR AGREGADO AQUÍ] */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="px-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            onClick={handleClone}
+                            disabled={isCloning}
+                            title="Duplicar Formulario"
+                        >
+                            <Copy className={`h-4 w-4 ${isCloning ? 'animate-spin' : ''}`} />
+                        </Button>
 
                         {formStatus === FormStatus.PUBLISHED && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 className="px-2"
+                                title="Copiar Link"
                                 onClick={() => {
                                     const url = `${window.location.origin}/f/${form.publicToken || ''}`;
                                     navigator.clipboard.writeText(url);
@@ -149,10 +188,9 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
                             </Button>
                         )}
 
-                        {/* [NUEVO] Botón de Eliminar con Confirmación */}
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" title="Eliminar">
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </AlertDialogTrigger>
@@ -161,7 +199,7 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
                                     <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
                                     <AlertDialogDescription>
                                         Esta acción no se puede deshacer. Esto eliminará permanentemente el formulario
-                                        <strong> "{form.title}"</strong> y todas las respuestas asociadas de tus servidores.
+                                        <strong> "{form.title}"</strong> y todas las respuestas asociadas.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
