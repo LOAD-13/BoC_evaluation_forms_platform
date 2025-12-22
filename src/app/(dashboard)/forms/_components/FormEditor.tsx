@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from "react"
-import Link from "next/link" // <--- 1. IMPORT AGREGADO
+import Link from "next/link"
 import QuestionBuilder, { Question } from "./QuestionBuilder"
 import AssignmentManager from "./AssignmentManager"
 import { Button } from "@/components/ui/button"
@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import ImageUploader from "@/components/forms/ImageUploader"
-import { Save, Loader2, Eye } from "lucide-react" // <--- 2. ICONO 'Eye' AGREGADO
+import { Save, Loader2, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { Switch } from "@/components/ui/switch" // <--- 1. Importar Switch
 import {
     Select,
     SelectContent,
@@ -28,6 +29,7 @@ interface FormEditorProps {
     initialDescription?: string
     initialBannerUrl?: string | null
     initialQuestions?: Question[]
+    initialAllowMultiple?: boolean // <--- 2. Nueva prop
 }
 
 export default function FormEditor({
@@ -36,7 +38,8 @@ export default function FormEditor({
     initialTitle,
     initialDescription,
     initialBannerUrl,
-    initialQuestions
+    initialQuestions,
+    initialAllowMultiple
 }: FormEditorProps) {
     const { toast } = useToast()
     const router = useRouter()
@@ -48,6 +51,9 @@ export default function FormEditor({
     const [title, setTitle] = useState(initialTitle)
     const [description, setDescription] = useState(initialDescription || "")
     const [bannerUrl, setBannerUrl] = useState(initialBannerUrl)
+
+    // [NUEVO] Estado para múltiples respuestas
+    const [allowMultiple, setAllowMultiple] = useState(initialAllowMultiple || false)
 
     const [questions, setQuestions] = useState<Question[]>(
         initialQuestions && initialQuestions.length > 0
@@ -66,7 +72,9 @@ export default function FormEditor({
 
             if (!response.ok) throw new Error("Error al actualizar")
 
+            // Actualizar estados locales si la respuesta es exitosa
             if (fieldData.status) setStatus(fieldData.status)
+            if (fieldData.allowMultipleResponses !== undefined) setAllowMultiple(fieldData.allowMultipleResponses)
 
             toast({ title: "Guardado correctamente" })
             router.refresh()
@@ -120,14 +128,12 @@ export default function FormEditor({
                         </SelectContent>
                     </Select>
 
-                    {/* --- 3. AQUÍ ESTÁ EL BOTÓN DE PREVIEW --- */}
                     <Link href={`/forms/${formId}/preview`} target="_blank">
                         <Button variant="outline" size="sm" title="Vista Previa">
                             <Eye className="h-4 w-4 mr-2" />
                             Vista Previa
                         </Button>
                     </Link>
-                    {/* -------------------------------------- */}
 
                     <AssignmentManager formId={formId} />
 
@@ -176,6 +182,25 @@ export default function FormEditor({
                             className="resize-none"
                             placeholder="Instrucciones para el usuario..."
                         />
+
+                        {/* --- 3. AQUÍ ESTÁ EL SWITCH --- */}
+                        <div className="flex items-center space-x-2 border p-4 rounded-lg bg-slate-50 mt-4">
+                            <Switch
+                                id="allow-multiple"
+                                checked={allowMultiple}
+                                onCheckedChange={(checked) => handleUpdateMetadata({ allowMultipleResponses: checked })}
+                            />
+                            <div className="grid gap-1.5 leading-none">
+                                <Label htmlFor="allow-multiple" className="text-sm font-medium leading-none cursor-pointer">
+                                    Permitir múltiples intentos
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                    Si está activo, los usuarios podrán responder el formulario varias veces.
+                                </p>
+                            </div>
+                        </div>
+                        {/* ----------------------------- */}
+
                     </div>
                 </div>
             </div>

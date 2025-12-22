@@ -3,9 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { cookies } from "next/headers";
 import { verifyJwt } from "@/lib/auth/jwt";
 import FormRenderer from "./_components/FormRenderer";
-import { Button } from "@/components/ui/button";
 import LogoutLink from "@/components/auth/LogoutLink";
-import { LogOut, UserCheck, AlertTriangle } from "lucide-react";
+import { UserCheck, AlertTriangle } from "lucide-react";
 
 interface PublicFormPageProps {
     params: Promise<{ token: string }>;
@@ -19,8 +18,11 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
         where: { token },
         include: {
             form: {
+                // Incluimos preguntas y el campo de configuración
                 include: {
-                    questions: { orderBy: { id: 'asc' }, include: { options: true } }
+                    questions: {
+                        include: { options: true }
+                    }
                 }
             }
         }
@@ -42,13 +44,14 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
         }
     }
 
-    // 3. BLOQUEO DE SEGURIDAD
-    if (user) {
+    // 3. BLOQUEO DE SEGURIDAD (Manejo de múltiples intentos)
+    // Solo bloqueamos si el usuario ya respondió Y el formulario NO permite múltiples intentos
+    if (user && !invitation.form.allowMultipleResponses) {
         const existingResponse = await prisma.response.findFirst({
             where: {
                 formId: invitation.formId,
                 userId: user.id,
-                finishedAt: { not: null }
+                finishedAt: { not: null } // Solo cuenta intentos finalizados
             }
         });
 
@@ -63,13 +66,14 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Ya respondiste este formulario</h1>
                             <p className="text-gray-500 mt-2">
-                                Se ha registrado una respuesta completa para la cuenta <span className="font-medium text-gray-900">{user.email}</span>.
+                                Este examen está configurado para permitir solo un intento.
+                                <br />
+                                Se ha registrado una respuesta para <span className="font-medium text-gray-900">{user.email}</span>.
                             </p>
                         </div>
 
                         <div className="border-t pt-6">
                             <p className="text-sm text-gray-400 mb-4">¿No eres tú o quieres intentar con otra cuenta?</p>
-                            {/* AQUÍ YA ESTABA BIEN */}
                             <div className="flex justify-center">
                                 <LogoutLink />
                             </div>
@@ -80,7 +84,7 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
         }
     }
 
-    // 4. Crear sesión de respuesta
+    // 4. Crear sesión de respuesta (Nuevo intento)
     const response = await prisma.response.create({
         data: {
             formId: invitation.formId,
@@ -109,7 +113,6 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
                         )}
                     </div>
 
-                    {/* [CAMBIO AQUÍ] Usamos LogoutLink en lugar del form antiguo */}
                     {user && (
                         <LogoutLink />
                     )}
