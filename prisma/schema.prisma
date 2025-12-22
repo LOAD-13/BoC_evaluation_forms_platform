@@ -12,41 +12,42 @@ datasource db {
 // ============================================
 
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  email         String         @unique @db.VarChar(150)
-  passwordHash  String         @map("password_hash") @db.VarChar(255)
-  fullName      String         @map("full_name") @db.VarChar(150)
-  isActive      Boolean        @default(true) @map("is_active")
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
-  
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(150)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(150)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
   // Relations
-  roles         UserRole[]
-  formsOwned    Form[]         @relation("FormOwner")
-  scores        Score[]
-  assignments   Assignment[]
-  auditLogs     AuditLog[]
-  
+  roles       UserRole[]
+  formsOwned  Form[]       @relation("FormOwner")
+  scores      Score[]
+  assignments Assignment[]
+  auditLogs   AuditLog[]
+  responses   Response[]
+
   @@map("users")
 }
 
 model Role {
-  id    Int        @id @default(autoincrement())
-  name  String     @unique @db.VarChar(50)
-  
+  id   Int    @id @default(autoincrement())
+  name String @unique @db.VarChar(50)
+
   // Relations
   users UserRole[]
-  
+
   @@map("roles")
 }
 
 model UserRole {
   userId String @map("user_id") @db.Uuid
   roleId Int    @map("role_id")
-  
+
   // Relations
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
   @@id([userId, roleId])
   @@map("user_roles")
 }
@@ -56,24 +57,27 @@ model UserRole {
 // ============================================
 
 model Form {
-  id              String       @id @default(uuid()) @db.Uuid
-  title           String       @db.VarChar(200)
-  description     String?      @db.Text
-  formType        String       @map("form_type") @db.VarChar(20)
-  status          String       @db.VarChar(20)
-  ownerId         String       @map("owner_id") @db.Uuid
-  clonedFrom      String?      @map("cloned_from") @db.Uuid
-  bannerImageUrl  String?      @map("banner_image_url") @db.VarChar(500)
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
-  
+  id             String   @id @default(uuid()) @db.Uuid
+  title          String   @db.VarChar(200)
+  description    String?  @db.Text
+  formType       String   @map("form_type") @db.VarChar(20)
+  status         String   @db.VarChar(20)
+  ownerId        String   @map("owner_id") @db.Uuid
+  clonedFrom     String?  @map("cloned_from") @db.Uuid
+  bannerImageUrl String?  @map("banner_image_url") @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // [NUEVO] Permitir múltiples respuestas por usuario
+  allowMultipleResponses Boolean @default(false) @map("allow_multiple_responses")
+
   // Relations
-  owner           User         @relation("FormOwner", fields: [ownerId], references: [id])
-  questions       Question[]
-  invitations     Invitation[]
-  responses       Response[]
-  scores          Score[]
-  assignments     Assignment[]
-  
+  owner       User         @relation("FormOwner", fields: [ownerId], references: [id])
+  questions   Question[]
+  invitations Invitation[]
+  responses   Response[]
+  scores      Score[]
+  assignments Assignment[]
+
   @@map("forms")
 }
 
@@ -82,30 +86,30 @@ model Form {
 // ============================================
 
 model Question {
-  id           String           @id @default(uuid()) @db.Uuid
-  formId       String           @map("form_id") @db.Uuid
-  questionText String           @map("question_text") @db.Text
-  questionType String           @map("question_type") @db.VarChar(30)
-  score        Decimal?         @db.Decimal(5, 2)
-  required     Boolean          @default(true)
-  imageUrl     String?          @map("image_url") @db.VarChar(500)
-  
+  id           String   @id @default(uuid()) @db.Uuid
+  formId       String   @map("form_id") @db.Uuid
+  questionText String   @map("question_text") @db.Text
+  questionType String   @map("question_type") @db.VarChar(30)
+  score        Decimal? @db.Decimal(5, 2)
+  required     Boolean  @default(true)
+  imageUrl     String?  @map("image_url") @db.VarChar(500)
+
   // Relations
-  form         Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
-  options      QuestionOption[]
-  
+  form    Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
+  options QuestionOption[]
+
   @@map("questions")
 }
 
 model QuestionOption {
-  id         String   @id @default(uuid()) @db.Uuid
-  questionId String   @map("question_id") @db.Uuid
-  optionText String   @map("option_text") @db.VarChar(255)
-  isCorrect  Boolean  @default(false) @map("is_correct")
-  
+  id         String  @id @default(uuid()) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  optionText String  @map("option_text") @db.VarChar(255)
+  isCorrect  Boolean @default(false) @map("is_correct")
+
   // Relations
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
   @@map("question_options")
 }
 
@@ -120,26 +124,27 @@ model Invitation {
   expiresAt   DateTime @map("expires_at") @db.Timestamp(6)
   maxAttempts Int      @default(1) @map("max_attempts")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  
+
   // Relations
-  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
   @@map("invitations")
 }
 
 model Response {
-  id           String           @id @default(uuid()) @db.Uuid
-  formId       String           @map("form_id") @db.Uuid
-  userId       String?          @map("user_id") @db.Uuid
-  invitationId String?          @map("invitation_id") @db.Uuid
-  startedAt    DateTime         @default(now()) @map("started_at") @db.Timestamp(6)
-  finishedAt   DateTime?        @map("finished_at") @db.Timestamp(6)
-  
+  id           String    @id @default(uuid()) @db.Uuid
+  formId       String    @map("form_id") @db.Uuid
+  userId       String?   @map("user_id") @db.Uuid
+  invitationId String?   @map("invitation_id") @db.Uuid
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  finishedAt   DateTime? @map("finished_at") @db.Timestamp(6)
+
   // Relations
-  form         Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
-  details      ResponseDetail[]
-  evaluation   Evaluation?
-  
+  form       Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user       User?            @relation(fields: [userId], references: [id])
+  details    ResponseDetail[]
+  evaluation Evaluation?
+
   @@map("responses")
 }
 
@@ -149,10 +154,10 @@ model ResponseDetail {
   questionId       String  @map("question_id") @db.Uuid
   answerText       String? @map("answer_text") @db.Text
   selectedOptionId String? @map("selected_option_id") @db.Uuid
-  
+
   // Relations
-  response         Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
   @@map("response_details")
 }
 
@@ -167,10 +172,10 @@ model Evaluation {
   maxScore    Decimal  @map("max_score") @db.Decimal(6, 2)
   passed      Boolean
   evaluatedAt DateTime @default(now()) @map("evaluated_at") @db.Timestamp(6)
-  
+
   // Relations
-  response    Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
   @@map("evaluations")
 }
 
@@ -181,18 +186,17 @@ model Score {
   score     Decimal  @db.Decimal(6, 2)
   attempt   Int
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  
+
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
   @@map("scores")
 }
 
 // ============================================
 // AUDIT
 // ============================================
-
 
 model Assignment {
   id         String   @id @default(uuid()) @db.Uuid
@@ -204,7 +208,7 @@ model Assignment {
   // Relations
   form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([formId, userId]) // Prevent duplicate assignments
   @@map("assignments")
 }
@@ -215,9 +219,9 @@ model AuditLog {
   action    String   @db.VarChar(100)
   entity    String   @db.VarChar(100)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  
+
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("audit_logs")
 }
