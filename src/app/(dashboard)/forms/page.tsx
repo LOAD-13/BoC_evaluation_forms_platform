@@ -30,7 +30,12 @@ export default async function FormsPage() {
             orderBy: { createdAt: 'desc' },
             include: {
                 _count: {
-                    select: { responses: true }
+                    // [CORRECCIÓN] Filtrar solo respuestas terminadas
+                    select: {
+                        responses: {
+                            where: { finishedAt: { not: null } }
+                        }
+                    }
                 },
                 invitations: {
                     take: 1
