@@ -1,15 +1,39 @@
 services:
-  postgres:
-    image: postgres:15
-    container_name: postgres_form
+  # --- TU APLICACIÓN NEXT.JS ---
+  app:
+    container_name: forms_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    restart: always
     ports:
-      - "5432:5432"
+      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      # OJO: Aquí 'postgres' es el nombre del servicio de abajo, no 'localhost'
+      - DATABASE_URL=postgresql://user_form:user_form_password@postgres:5432/bd_form?schema=public
+      - NEXT_PUBLIC_APP_URL=http://0.0.0.0:3000
+      # Copia aquí tus secretos de .env
+      - JWT_SECRET=tu-secret-key-super-segura-aqui-cambiar-en-produccion
+      - JWT_REFRESH_SECRET=otro-secret-diferente-para-refresh-token
+    volumes:
+      # Para que las imágenes subidas no se borren al reiniciar
+      - ./public/uploads:/app/public/uploads
+
+  # --- TU BASE DE DATOS (Ya existente) ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_form
+    restart: always
     environment:
       POSTGRES_USER: user_form
       POSTGRES_PASSWORD: user_form_password
-      POSTGRES_DB: postgres
+      POSTGRES_DB: bd_form
+    ports:
+      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
-volumes:
-  pgdata:
+      # Persistencia de datos en la carpeta local 'pgdata'
+      - ./pgdata:/var/lib/postgresql/data

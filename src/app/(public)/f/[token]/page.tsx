@@ -146,7 +146,13 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
             {/* RENDERIZADOR */}
             <div className="flex-1">
                 <FormRenderer
-                    form={invitation.form}
+                    form={{
+                        ...invitation.form,
+                        questions: invitation.form.questions.map(q => ({
+                            ...q,
+                            score: q.score ? Number(q.score) : null
+                        }))
+                    }}
                     responseId={response.id}
                     previewMode={false}
                 />
