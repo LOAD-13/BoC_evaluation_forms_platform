@@ -1,2 +1,0 @@
-// File generated automatically
-export {}
