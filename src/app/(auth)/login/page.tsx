@@ -91,12 +91,21 @@ export default function LoginPage() {
                         >
                             <FormField
                                 control={form.control}
-                                name="email"
+                                name="password"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Correo electrónico</FormLabel>
+                                        <div className="flex items-center justify-between">
+                                            <FormLabel>Contraseña</FormLabel>
+                                            <Link
+                                                href="/forgot-password"
+                                                className="text-xs text-primary hover:underline font-medium"
+                                                tabIndex={-1} // Para que no estorbe al tabular
+                                            >
+                                                ¿Olvidaste tu contraseña?
+                                            </Link>
+                                        </div>
                                         <FormControl>
-                                            <Input placeholder="nombre@empresa.com" {...field} />
+                                            <Input type="password" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
