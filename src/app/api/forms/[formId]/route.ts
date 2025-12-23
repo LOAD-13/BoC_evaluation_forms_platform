@@ -3,7 +3,7 @@ import { verifyJwt } from "@/lib/auth/jwt"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { FormStatus } from "@/lib/constants/statusTypes"
-import { v4 as uuidv4 } from 'uuid'; // [NUEVO] Importante para generar el token
+import { v4 as uuidv4 } from 'uuid';
 
 // PATCH /api/forms/[formId]
 export async function PATCH(
@@ -22,7 +22,8 @@ export async function PATCH(
         const { formId } = await params
         const body = await req.json()
 
-        const { status, title, description, bannerImageUrl } = body
+        // [MODIFICADO] Extraemos también los campos booleanos
+        const { status, title, description, bannerImageUrl, allowMultipleResponses, requiresLogin } = body
 
         // Verificar propiedad
         const form = await prisma.form.findUnique({
@@ -40,21 +41,18 @@ export async function PATCH(
             return NextResponse.json({ error: "Estado inválido" }, { status: 400 })
         }
 
-        // [NUEVO] Lógica de Publicación Automática
-        // Si el usuario cambia el estado a PUBLISHED, nos aseguramos de que exista una invitación
+        // Lógica de Publicación Automática
         if (status === FormStatus.PUBLISHED) {
-            // Verificar si ya existe una invitación pública para este form
             const existingInvitation = await prisma.invitation.findFirst({
                 where: { formId: formId }
             });
 
-            // Si no existe, la creamos ahora mismo con un token único
             if (!existingInvitation) {
                 await prisma.invitation.create({
                     data: {
                         formId: formId,
-                        token: uuidv4(), // Generamos el token único (ej: a1b2-c3d4...)
-                        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // Expira en 1 año por defecto
+                        token: uuidv4(),
+                        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
                     }
                 });
             }
@@ -66,7 +64,10 @@ export async function PATCH(
                 ...(title && { title }),
                 ...(description !== undefined && { description }),
                 ...(status && { status }),
-                ...(bannerImageUrl !== undefined && { bannerImageUrl })
+                ...(bannerImageUrl !== undefined && { bannerImageUrl }),
+                // [NUEVO] Actualizar configuraciones booleanas si vienen en el body
+                ...(allowMultipleResponses !== undefined && { allowMultipleResponses }),
+                ...(requiresLogin !== undefined && { requiresLogin }),
             }
         })
 
@@ -78,11 +79,12 @@ export async function PATCH(
     }
 }
 
-// Método DELETE para eliminar formularios
+// ... El método DELETE queda igual
 export async function DELETE(
     req: Request,
     { params }: { params: Promise<{ formId: string }> }
 ) {
+    // (Tu código DELETE existente va aquí tal cual estaba)
     try {
         const cookieStore = await cookies()
         const token = cookieStore.get("token")?.value
@@ -94,7 +96,6 @@ export async function DELETE(
 
         const { formId } = await params
 
-        // Verificar existencia y propiedad
         const form = await prisma.form.findUnique({
             where: { id: formId }
         })
@@ -105,7 +106,6 @@ export async function DELETE(
             return NextResponse.json({ error: "No tienes permisos para eliminar este formulario" }, { status: 403 })
         }
 
-        // Eliminar formulario (gracias al Cascade en schema.prisma, esto borrará preguntas y respuestas)
         await prisma.form.delete({
             where: { id: formId }
         })

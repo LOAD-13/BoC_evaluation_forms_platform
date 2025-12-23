@@ -5,6 +5,9 @@ import { verifyJwt } from "@/lib/auth/jwt";
 import FormRenderer from "./_components/FormRenderer";
 import LogoutLink from "@/components/auth/LogoutLink";
 import { UserCheck, AlertTriangle } from "lucide-react";
+// [NUEVO] Import para el botón de login
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 interface PublicFormPageProps {
     params: Promise<{ token: string }>;
@@ -18,7 +21,6 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
         where: { token },
         include: {
             form: {
-                // Incluimos preguntas y el campo de configuración
                 include: {
                     questions: {
                         include: { options: true }
@@ -44,14 +46,37 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
         }
     }
 
+    // [NUEVO] 2.5 VALIDACIÓN DE LOGIN REQUERIDO
+    if (invitation.form.requiresLogin && !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                <div className="max-w-md w-full bg-white shadow-lg rounded-xl p-8 text-center space-y-6">
+                    <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                        <UserCheck className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Acceso Restringido</h1>
+                        <p className="text-gray-500 mt-2">
+                            Este formulario requiere que inicies sesión para responder.
+                        </p>
+                    </div>
+                    <div className="border-t pt-6">
+                        <Link href={`/login?callbackUrl=/f/${token}`}>
+                            <Button className="w-full">Iniciar Sesión</Button>
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // 3. BLOQUEO DE SEGURIDAD (Manejo de múltiples intentos)
-    // Solo bloqueamos si el usuario ya respondió Y el formulario NO permite múltiples intentos
     if (user && !invitation.form.allowMultipleResponses) {
         const existingResponse = await prisma.response.findFirst({
             where: {
                 formId: invitation.formId,
                 userId: user.id,
-                finishedAt: { not: null } // Solo cuenta intentos finalizados
+                finishedAt: { not: null }
             }
         });
 
@@ -84,7 +109,7 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
         }
     }
 
-    // 4. Crear sesión de respuesta (Nuevo intento)
+    // 4. Crear sesión de respuesta
     const response = await prisma.response.create({
         data: {
             formId: invitation.formId,
@@ -96,7 +121,6 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-
             {/* BARRA SUPERIOR DE IDENTIDAD */}
             <div className="bg-white border-b px-4 py-3 shadow-sm sticky top-0 z-10">
                 <div className="max-w-3xl mx-auto flex justify-between items-center">

@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import ImageUploader from "@/components/forms/ImageUploader"
-import { Save, Loader2, Eye } from "lucide-react"
+// [MODIFICADO] Agregamos 'Lock'
+import { Save, Loader2, Eye, Lock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { Switch } from "@/components/ui/switch" // <--- 1. Importar Switch
+import { Switch } from "@/components/ui/switch"
 import {
     Select,
     SelectContent,
@@ -29,7 +30,8 @@ interface FormEditorProps {
     initialDescription?: string
     initialBannerUrl?: string | null
     initialQuestions?: Question[]
-    initialAllowMultiple?: boolean // <--- 2. Nueva prop
+    initialAllowMultiple?: boolean
+    initialRequiresLogin?: boolean // [NUEVO]
 }
 
 export default function FormEditor({
@@ -39,7 +41,8 @@ export default function FormEditor({
     initialDescription,
     initialBannerUrl,
     initialQuestions,
-    initialAllowMultiple
+    initialAllowMultiple,
+    initialRequiresLogin // [NUEVO]
 }: FormEditorProps) {
     const { toast } = useToast()
     const router = useRouter()
@@ -52,8 +55,9 @@ export default function FormEditor({
     const [description, setDescription] = useState(initialDescription || "")
     const [bannerUrl, setBannerUrl] = useState(initialBannerUrl)
 
-    // [NUEVO] Estado para múltiples respuestas
+    // Estados de configuración
     const [allowMultiple, setAllowMultiple] = useState(initialAllowMultiple || false)
+    const [requiresLogin, setRequiresLogin] = useState(initialRequiresLogin || false) // [NUEVO]
 
     const [questions, setQuestions] = useState<Question[]>(
         initialQuestions && initialQuestions.length > 0
@@ -75,6 +79,7 @@ export default function FormEditor({
             // Actualizar estados locales si la respuesta es exitosa
             if (fieldData.status) setStatus(fieldData.status)
             if (fieldData.allowMultipleResponses !== undefined) setAllowMultiple(fieldData.allowMultipleResponses)
+            if (fieldData.requiresLogin !== undefined) setRequiresLogin(fieldData.requiresLogin) // [NUEVO]
 
             toast({ title: "Guardado correctamente" })
             router.refresh()
@@ -183,23 +188,44 @@ export default function FormEditor({
                             placeholder="Instrucciones para el usuario..."
                         />
 
-                        {/* --- 3. AQUÍ ESTÁ EL SWITCH --- */}
-                        <div className="flex items-center space-x-2 border p-4 rounded-lg bg-slate-50 mt-4">
-                            <Switch
-                                id="allow-multiple"
-                                checked={allowMultiple}
-                                onCheckedChange={(checked) => handleUpdateMetadata({ allowMultipleResponses: checked })}
-                            />
-                            <div className="grid gap-1.5 leading-none">
-                                <Label htmlFor="allow-multiple" className="text-sm font-medium leading-none cursor-pointer">
-                                    Permitir múltiples intentos
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Si está activo, los usuarios podrán responder el formulario varias veces.
-                                </p>
+                        <div className="flex flex-col gap-3 mt-4">
+                            {/* SWITCH 1: Múltiples Intentos */}
+                            <div className="flex items-center space-x-2 border p-4 rounded-lg bg-slate-50">
+                                <Switch
+                                    id="allow-multiple"
+                                    checked={allowMultiple}
+                                    onCheckedChange={(checked) => handleUpdateMetadata({ allowMultipleResponses: checked })}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <Label htmlFor="allow-multiple" className="text-sm font-medium leading-none cursor-pointer">
+                                        Permitir múltiples intentos
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Si está activo, los usuarios podrán responder el formulario varias veces.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* SWITCH 2: Requiere Login [NUEVO] */}
+                            <div className="flex items-center space-x-2 border p-4 rounded-lg bg-slate-50">
+                                <Switch
+                                    id="requires-login"
+                                    checked={requiresLogin}
+                                    onCheckedChange={(checked) => handleUpdateMetadata({ requiresLogin: checked })}
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="h-3 w-3 text-slate-500" />
+                                        <Label htmlFor="requires-login" className="text-sm font-medium leading-none cursor-pointer">
+                                            Requerir inicio de sesión
+                                        </Label>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Si activo, solo usuarios registrados podrán ver y responder este formulario.
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                        {/* ----------------------------- */}
 
                     </div>
                 </div>
