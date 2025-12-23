@@ -49,7 +49,6 @@ export default function LoginPage() {
 
             toast({ title: "Bienvenido", description: "Iniciando sesión..." });
 
-            // --- [CAMBIO IMPORTANTE AQUÍ] ---
             // Leemos si hay una URL de retorno pendiente
             const params = new URLSearchParams(window.location.search);
             const callbackUrl = params.get("callbackUrl");
@@ -91,6 +90,21 @@ export default function LoginPage() {
                         >
                             <FormField
                                 control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Correo electrónico</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="nombre@empresa.com" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* BLOQUE DE CONTRASEÑA ÚNICO (CON ENLACE DE RECUPERACIÓN) */}
+                            <FormField
+                                control={form.control}
                                 name="password"
                                 render={({ field }) => (
                                     <FormItem>
@@ -99,7 +113,7 @@ export default function LoginPage() {
                                             <Link
                                                 href="/forgot-password"
                                                 className="text-xs text-primary hover:underline font-medium"
-                                                tabIndex={-1} // Para que no estorbe al tabular
+                                                tabIndex={-1}
                                             >
                                                 ¿Olvidaste tu contraseña?
                                             </Link>
@@ -111,19 +125,7 @@ export default function LoginPage() {
                                     </FormItem>
                                 )}
                             />
-                            <FormField
-                                control={form.control}
-                                name="password"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Contraseña</FormLabel>
-                                        <FormControl>
-                                            <Input type="password" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? (
                                     <>
