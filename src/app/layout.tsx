@@ -3,18 +3,18 @@ import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "@/styles/globals.css";
 
-// Configuración de la fuente Inter (Google Fonts)
 const inter = Inter({
     subsets: ["latin"],
     variable: "--font-inter",
 });
 
+// [MODIFICADO] Títulos actualizados
 export const metadata: Metadata = {
     title: {
-        template: "%s | Plataforma de Evaluaciones",
-        default: "Plataforma de Evaluaciones",
+        template: "%s | BoCForms",
+        default: "BoCForms - Plataforma de Evaluaciones",
     },
-    description: "Sistema de gestión de exámenes y encuestas de capacitación.",
+    description: "Sistema de gestión de exámenes y encuestas del Bank of China.",
 };
 
 export default function RootLayout({
