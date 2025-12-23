@@ -12,12 +12,17 @@ datasource db {
 // ============================================
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique @db.VarChar(150)
-  passwordHash String   @map("password_hash") @db.VarChar(255)
-  fullName     String   @map("full_name") @db.VarChar(150)
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  id           String  @id @default(uuid()) @db.Uuid
+  email        String  @unique @db.VarChar(150)
+  passwordHash String  @map("password_hash") @db.VarChar(255)
+  fullName     String  @map("full_name") @db.VarChar(150)
+  isActive     Boolean @default(true) @map("is_active")
+
+  // [NUEVO] Para recuperación de contraseña
+  resetToken       String?   @map("reset_token") @db.VarChar(255)
+  resetTokenExpiry DateTime? @map("reset_token_expiry") @db.Timestamp(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   // Relations
   roles       UserRole[]
@@ -67,8 +72,11 @@ model Form {
   bannerImageUrl String?  @map("banner_image_url") @db.VarChar(500)
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
-  // [NUEVO] Permitir múltiples respuestas por usuario
+  // Configuración de respuestas
   allowMultipleResponses Boolean @default(false) @map("allow_multiple_responses")
+
+  // [NUEVO] Si es true, usuarios anónimos NO pueden responder
+  requiresLogin Boolean @default(false) @map("requires_login")
 
   // Relations
   owner       User         @relation("FormOwner", fields: [ownerId], references: [id])
