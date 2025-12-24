@@ -1,14 +1,14 @@
 "use client"
-import React from "react"
+import React, { useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { Trash2, PlusCircle, X, CheckCircle2, BarChartHorizontal } from "lucide-react"
-import { QUESTION_TYPES } from "@/lib/constants/questionTypes" // Importamos los tipos
-import ScaleQuestion from "@/components/forms/ScaleQuestion" // Importamos el componente visual
+import { Trash2, PlusCircle, X, CheckCircle2, BarChartHorizontal, CheckSquare } from "lucide-react"
+import { QUESTION_TYPES } from "@/lib/constants/questionTypes"
+import ScaleQuestion from "@/components/forms/ScaleQuestion"
 
 export interface QuestionOption {
     text: string;
@@ -18,8 +18,7 @@ export interface QuestionOption {
 export interface Question {
     id: string | number;
     text: string;
-    // [MODIFICADO] Agregamos 'scale' al tipo
-    type: "text" | "multiple" | "true_false" | "scale";
+    type: "text" | "multiple" | "checkbox" | "true_false" | "scale";
     required: boolean;
     points: number;
     options?: QuestionOption[];
@@ -37,17 +36,31 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
     }
 
     const updateQuestion = (id: string | number, field: keyof Question, value: any) => {
-        setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
+        setQuestions(questions.map(q => {
+            if (q.id === id) {
+                // Lógica especial al cambiar de tipo
+                if (field === 'type') {
+                    // Si cambia a Verdadero/Falso, reiniciamos las opciones automáticamente
+                    if (value === 'true_false') {
+                        return {
+                            ...q,
+                            [field]: value,
+                            options: [
+                                { text: "Verdadero", isCorrect: true },
+                                { text: "Falso", isCorrect: false }
+                            ]
+                        };
+                    }
+                    // Si cambia a Checkbox o Múltiple y no tiene opciones, inicializamos una vacía
+                    if ((value === 'multiple' || value === 'checkbox') && (!q.options || q.options.length === 0)) {
+                        return { ...q, [field]: value, options: [{ text: "", isCorrect: false }] };
+                    }
+                }
+                return { ...q, [field]: value };
+            }
+            return q;
+        }));
     }
-
-    // Funciones auxiliares para opciones (addOption, updateOptionText, etc.) se mantienen igual...
-    // Puedes copiar las del archivo original aquí si las necesitas completas, 
-    // pero me enfocaré en el renderizado del tipo SCALE.
-
-    // ... (Mantén las funciones addOption, updateOptionText, toggleOptionCorrectness, removeOption del archivo original)
-    // Para brevedad, asumo que están aquí.
-
-    // --> REEMPLAZA EL CONTENIDO DEL RENDERIZADO CON ESTO:
 
     const addOption = (qId: string | number) => {
         setQuestions(questions.map(q => {
@@ -70,11 +83,22 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
         }));
     }
 
-    const toggleOptionCorrectness = (qId: string | number, optIndex: number) => {
+    const toggleOptionCorrectness = (qId: string | number, optIndex: number, isSingleChoice: boolean) => {
         setQuestions(questions.map(q => {
             if (q.id === qId && q.options) {
-                const newOptions = [...q.options];
-                newOptions[optIndex] = { ...newOptions[optIndex], isCorrect: !newOptions[optIndex].isCorrect };
+                let newOptions = [...q.options];
+
+                if (isSingleChoice) {
+                    // Si es selección única (Radio o True/False), desmarcar todas las demás
+                    newOptions = newOptions.map((o, i) => ({
+                        ...o,
+                        isCorrect: i === optIndex // Solo la clickeada es true
+                    }));
+                } else {
+                    // Si es selección múltiple (Checkbox), solo alternar la actual
+                    newOptions[optIndex] = { ...newOptions[optIndex], isCorrect: !newOptions[optIndex].isCorrect };
+                }
+
                 return { ...q, options: newOptions }
             }
             return q;
@@ -137,25 +161,37 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                             </div>
                         </div>
 
-                        {/* RENDERIZADO CONDICIONAL POR TIPO */}
+                        {/* ================= SECCIÓN DE OPCIONES ================= */}
 
-                        {/* Opción Múltiple */}
-                        {q.type === 'multiple' && (
+                        {/* 1. OPCIÓN MÚLTIPLE (Radio) y CHECKBOX (Multiple) */}
+                        {(q.type === 'multiple' || q.type === 'checkbox') && (
                             <div className="space-y-2 bg-muted/30 p-4 rounded-md">
-                                <Label>Opciones de respuesta</Label>
+                                <Label>
+                                    {q.type === 'checkbox' ? 'Opciones (Selección Múltiple)' : 'Opciones (Selección Única)'}
+                                </Label>
+                                <p className="text-xs text-muted-foreground mb-2">
+                                    Haz clic en el {q.type === 'checkbox' ? 'cuadrado' : 'círculo'} para marcar la(s) respuesta(s) correcta(s).
+                                </p>
                                 <div className="space-y-2">
                                     {q.options?.map((opt, optIndex) => (
                                         <div key={optIndex} className="flex items-center gap-2">
+                                            {/* Botón para marcar correcta */}
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 className={`h-8 w-8 rounded-full ${opt.isCorrect ? 'text-green-600 bg-green-100' : 'text-gray-300'}`}
-                                                onClick={() => toggleOptionCorrectness(q.id, optIndex)}
+                                                onClick={() => toggleOptionCorrectness(q.id, optIndex, q.type === 'multiple')}
                                             >
-                                                <CheckCircle2 className="h-5 w-5" />
+                                                {q.type === 'checkbox' ? (
+                                                    <CheckSquare className="h-5 w-5" />
+                                                ) : (
+                                                    <CheckCircle2 className="h-5 w-5" />
+                                                )}
                                             </Button>
+
                                             <Input
                                                 className="h-8"
+                                                placeholder={`Opción ${optIndex + 1}`}
                                                 value={opt.text || ""}
                                                 onChange={(e) => updateOptionText(q.id, optIndex, e.target.value)}
                                             />
@@ -171,7 +207,33 @@ export default function QuestionBuilder({ questions, setQuestions }: QuestionBui
                             </div>
                         )}
 
-                        {/* [MODIFICADO] Vista previa de Scale (1-5) */}
+                        {/* 2. VERDADERO / FALSO (Ahora sí se ve) */}
+                        {q.type === 'true_false' && (
+                            <div className="space-y-2 bg-muted/30 p-4 rounded-md">
+                                <Label>Definir respuesta correcta</Label>
+                                <div className="flex gap-4 mt-2">
+                                    {q.options?.map((opt, index) => (
+                                        <div
+                                            key={index}
+                                            onClick={() => toggleOptionCorrectness(q.id, index, true)} // True/False es selección única
+                                            className={`
+                                                flex-1 p-4 border rounded-lg cursor-pointer text-center transition-all
+                                                ${opt.isCorrect
+                                                    ? 'bg-green-50 border-green-500 ring-1 ring-green-500'
+                                                    : 'bg-white border-gray-200 hover:bg-gray-50'}
+                                            `}
+                                        >
+                                            <span className={`font-semibold ${opt.isCorrect ? 'text-green-700' : 'text-gray-600'}`}>
+                                                {opt.text}
+                                            </span>
+                                            {opt.isCorrect && <p className="text-xs text-green-600 mt-1">(Correcta)</p>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. SCALE (1-5) */}
                         {q.type === 'scale' && (
                             <div className="bg-muted/30 p-4 rounded-md border border-dashed">
                                 <div className="flex items-center gap-2 mb-3 text-muted-foreground">
