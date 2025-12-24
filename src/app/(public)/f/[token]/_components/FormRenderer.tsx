@@ -4,18 +4,16 @@ import { useState } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import ScaleQuestion from "@/components/forms/ScaleQuestion";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+// [IMPORTANTE] Importamos el componente bonito
+import QuestionRenderer from "./QuestionRenderer";
 
 interface Option {
     id: string;
     optionText: string;
-    isCorrect?: boolean; // <--- Agregado para poder calcular la nota
+    isCorrect?: boolean;
 }
 
 interface Question {
@@ -23,7 +21,7 @@ interface Question {
     questionText: string;
     questionType: string;
     required: boolean;
-    score?: number | null; // <--- Agregado para saber cuánto vale
+    score?: number | null;
     options: Option[];
 }
 
@@ -42,12 +40,13 @@ interface FormRendererProps {
 export default function FormRenderer({ form, responseId, previewMode = false }: FormRendererProps) {
     const { toast } = useToast();
     const router = useRouter();
-    const [answers, setAnswers] = useState<Record<string, string>>({});
+    // [CAMBIO] Usamos 'any' para permitir arrays (checkboxes) y strings
+    const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isFinished, setIsFinished] = useState(false);
     const [scoreResult, setScoreResult] = useState<{ score: number; passed: boolean } | null>(null);
 
-    const handleAnswerChange = (questionId: string, value: string) => {
+    const handleAnswerChange = (questionId: string, value: any) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
     };
 
@@ -60,29 +59,52 @@ export default function FormRenderer({ form, responseId, previewMode = false }: 
             const questionPoints = Number(q.score) || 0;
             maxScore += questionPoints;
 
-            const userAnswerId = answers[q.id];
+            const userAnswer = answers[q.id];
 
-            // Lógica para Opción Múltiple / Verdadero-Falso
+            // 1. Lógica para Opción Múltiple / Verdadero-Falso
             if (q.questionType === 'multiple' || q.questionType === 'true_false') {
-                const selectedOption = q.options.find(opt => opt.id === userAnswerId);
+                const selectedOption = q.options.find(opt => opt.id === userAnswer);
                 if (selectedOption?.isCorrect) {
                     totalScore += questionPoints;
                 }
             }
-            // Aquí puedes agregar lógica para otros tipos si es necesario
+
+            // 2. [NUEVO] Lógica para Checkbox (Selección Múltiple)
+            if (q.questionType === 'checkbox' && Array.isArray(userAnswer)) {
+                // Obtenemos los IDs de todas las opciones correctas
+                const correctOptionIds = q.options.filter(o => o.isCorrect).map(o => o.id);
+
+                // Verificamos:
+                // a) Que la cantidad seleccionada sea igual a la cantidad de correctas
+                // b) Que cada opción seleccionada esté en la lista de correctas
+                const isCorrect =
+                    userAnswer.length === correctOptionIds.length &&
+                    userAnswer.every((id: string) => correctOptionIds.includes(id));
+
+                if (isCorrect) {
+                    totalScore += questionPoints;
+                }
+            }
         });
 
-        // Consideramos aprobado si saca más del 60% (puedes ajustar esto)
-        const passed = totalScore >= (maxScore * 0.6);
+        // Consideramos aprobado si saca más del 60%
+        const passed = maxScore > 0 ? totalScore >= (maxScore * 0.6) : true;
         return { score: totalScore, passed };
     };
 
     const handleSubmit = async () => {
-        const missingRequired = form.questions.filter(q => q.required && !answers[q.id]);
+        // Validación de requeridos (soporta arrays vacíos también)
+        const missingRequired = form.questions.filter(q => {
+            if (!q.required) return false;
+            const ans = answers[q.id];
+            if (Array.isArray(ans)) return ans.length === 0; // Checkbox vacío
+            return !ans; // String vacío o null
+        });
+
         if (missingRequired.length > 0) {
             toast({
                 title: "Faltan preguntas",
-                description: "Responde las obligatorias marcadas con *",
+                description: "Por favor responde las preguntas obligatorias marcadas con *",
                 variant: "destructive"
             });
             return;
@@ -95,9 +117,8 @@ export default function FormRenderer({ form, responseId, previewMode = false }: 
             });
             setIsSubmitting(true);
 
-            // Simulamos un pequeño retraso y calculamos
             setTimeout(() => {
-                const result = calculatePreviewScore(); // <--- AQUI USAMOS LA NUEVA FUNCIÓN
+                const result = calculatePreviewScore();
                 setScoreResult(result);
                 setIsSubmitting(false);
                 setIsFinished(true);
@@ -120,9 +141,9 @@ export default function FormRenderer({ form, responseId, previewMode = false }: 
             const data = await res.json();
             setScoreResult({ score: data.score, passed: data.passed });
             setIsFinished(true);
-            toast({ title: "Enviado", description: "Respuestas guardadas." });
+            toast({ title: "Enviado", description: "Respuestas guardadas correctamente." });
         } catch (error) {
-            toast({ title: "Error", description: "No se pudo enviar.", variant: "destructive" });
+            toast({ title: "Error", description: "No se pudo enviar las respuestas.", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -130,22 +151,34 @@ export default function FormRenderer({ form, responseId, previewMode = false }: 
 
     if (isFinished && scoreResult) {
         return (
-            <div className="max-w-2xl mx-auto py-10 px-4 text-center space-y-6">
-                <Card>
+            <div className="max-w-2xl mx-auto py-10 px-4 text-center space-y-6 animate-in fade-in zoom-in duration-500">
+                <Card className="border-2 shadow-lg">
                     <CardHeader>
-                        <CardTitle>Resultados {previewMode ? "(Simulación)" : ""}</CardTitle>
+                        <CardTitle className="text-2xl">Resultados {previewMode ? "(Simulación)" : ""}</CardTitle>
                         <CardDescription>{form.title}</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent className="space-y-8">
                         <div className="flex flex-col items-center justify-center space-y-2">
-                            <span className="text-6xl font-bold text-primary">{scoreResult.score}</span>
-                            <span className="text-xl text-muted-foreground">Puntos Obtenidos</span>
+                            <span className="text-7xl font-extrabold text-primary">{scoreResult.score}</span>
+                            <span className="text-lg text-muted-foreground uppercase tracking-widest font-semibold">Puntos</span>
                         </div>
-                        <div className={`p-4 rounded-lg font-bold text-xl ${scoreResult.passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                            {scoreResult.passed ? "¡APROBADO!" : "REPROBADO"}
+
+                        <div className={`
+                            p-6 rounded-xl font-bold text-2xl border-2 transform transition-all
+                            ${scoreResult.passed
+                                ? "bg-green-50 border-green-200 text-green-700"
+                                : "bg-red-50 border-red-200 text-red-700"}
+                        `}>
+                            {scoreResult.passed ? "🎉 ¡APROBADO!" : "❌ REPROBADO"}
                         </div>
-                        <Button onClick={() => previewMode ? window.location.reload() : router.refresh()} variant="outline">
-                            {previewMode ? "Probar de nuevo" : "Volver"}
+
+                        <Button
+                            onClick={() => previewMode ? window.location.reload() : router.refresh()}
+                            variant="default"
+                            size="lg"
+                            className="w-full sm:w-auto"
+                        >
+                            {previewMode ? "Probar de nuevo" : "Volver al inicio"}
                         </Button>
                     </CardContent>
                 </Card>
@@ -156,81 +189,38 @@ export default function FormRenderer({ form, responseId, previewMode = false }: 
     return (
         <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
             {form.bannerImageUrl && (
-                <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-sm">
+                <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-md">
                     <Image src={form.bannerImageUrl} alt="Form Banner" fill className="object-cover" priority />
                 </div>
             )}
 
-            <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold">{form.title}</h1>
-                {form.description && <p className="text-muted-foreground">{form.description}</p>}
+            <div className="text-center space-y-4 mb-8">
+                <h1 className="text-4xl font-bold tracking-tight text-slate-900">{form.title}</h1>
+                {form.description && <p className="text-lg text-slate-600 max-w-2xl mx-auto">{form.description}</p>}
             </div>
 
             <div className="space-y-6">
-                {form.questions.map((q, index) => (
-                    <Card key={q.id}>
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
-                                <CardTitle className="text-lg font-medium">
-                                    {index + 1}. {q.questionText}
-                                    {q.required && <span className="text-red-500 ml-1">*</span>}
-                                </CardTitle>
-                                {previewMode && q.score ? (
-                                    <span className="text-xs font-semibold bg-gray-100 px-2 py-1 rounded text-gray-500">
-                                        {Number(q.score)} pts
-                                    </span>
-                                ) : null}
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {q.questionType === "text" && (
-                                <Input
-                                    value={answers[q.id] || ""}
-                                    onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                                    placeholder="Tu respuesta..."
-                                />
-                            )}
-                            {(q.questionType === "multiple" || q.questionType === "true_false") && (
-                                <RadioGroup
-                                    value={answers[q.id] || ""}
-                                    onValueChange={(val) => handleAnswerChange(q.id, val)}
-                                >
-                                    <div className="space-y-2">
-                                        {q.options.map((opt) => (
-                                            <div key={opt.id} className="flex items-center space-x-2">
-                                                <RadioGroupItem value={opt.id} id={opt.id} />
-                                                <Label htmlFor={opt.id} className="cursor-pointer font-normal">
-                                                    {opt.optionText}
-                                                </Label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </RadioGroup>
-                            )}
-                            {(q.questionType === "scale" || q.questionType === "SCALE") && (
-                                <div className="pt-2">
-                                    <ScaleQuestion
-                                        value={answers[q.id] ? parseInt(answers[q.id]) : undefined}
-                                        onChange={(val) => handleAnswerChange(q.id, val.toString())}
-                                    />
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                {form.questions.map((q) => (
+                    // [AQUÍ ESTÁ LA MAGIA] Usamos el componente bonito
+                    <QuestionRenderer
+                        key={q.id}
+                        question={q}
+                        value={answers[q.id]}
+                        onChange={(val) => handleAnswerChange(q.id, val)}
+                        error={ /* Aquí podrías pasar errores si validaras campo por campo */ undefined}
+                    />
                 ))}
             </div>
 
-            <div className="flex justify-end pb-10">
+            <div className="flex justify-end pt-6 pb-10">
                 <Button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
                     size="lg"
-                    // [AQUÍ CAMBIAS EL COLOR DEL BOTÓN]
-                    // bg-blue-600 es azul. Puedes usar: bg-green-600, bg-purple-600, bg-black, etc.
-                    className={previewMode ? "bg-black hover:bg-gray-700 text-white" : ""}
+                    className={`min-w-[200px] text-lg h-12 shadow-lg transition-all hover:scale-105 ${previewMode ? "bg-slate-800 hover:bg-slate-900" : ""}`}
                 >
                     {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
-                    {previewMode ? "Simular Envío" : "Finalizar Examen"}
+                    {previewMode ? "Simular Envío" : "Finalizar y Enviar"}
                 </Button>
             </div>
         </div>

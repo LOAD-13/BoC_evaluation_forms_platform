@@ -3,6 +3,8 @@ import { verifyJwt } from "@/lib/auth/jwt";
 import { prisma } from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 import UserTable from "./_components/UserTable";
+// [CAMBIO 1] Importar el diálogo de creación
+import { CreateUserDialog } from "./_components/CreateUserDialog";
 
 export default async function UsersPage() {
     // 1. Verificar Autenticación
@@ -16,10 +18,10 @@ export default async function UsersPage() {
 
     // 2. Verificar Rol de Admin
     if (payload.role !== 'ADMIN') {
-        redirect("/dashboard"); // O mostrar una página de "Sin Acceso"
+        redirect("/dashboard");
     }
 
-    // 3. Obtener usuarios con sus roles
+    // 3. Obtener usuarios
     const users = await prisma.user.findMany({
         orderBy: { createdAt: "desc" },
         include: {
@@ -31,7 +33,6 @@ export default async function UsersPage() {
         }
     });
 
-    // 4. Transformar datos para la tabla
     const formattedUsers = users.map(user => ({
         id: user.id,
         email: user.email,
@@ -45,6 +46,10 @@ export default async function UsersPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Gestión de Usuarios</h2>
+
+                {/* [CAMBIO 2] Aquí colocamos el botón */}
+                <CreateUserDialog />
+
             </div>
 
             <UserTable users={formattedUsers} />

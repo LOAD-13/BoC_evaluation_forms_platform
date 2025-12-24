@@ -9,11 +9,12 @@ const saveQuestionsSchema = z.array(
     z.object({
         id: z.string().or(z.number()).optional(),
         text: z.string().min(1, "El texto de la pregunta es obligatorio"),
-        type: z.enum(["text", "multiple", "true_false", "scale"]),
+        // [CORRECCIÓN AQUÍ] Agregamos "checkbox" a la lista
+        type: z.enum(["text", "multiple", "checkbox", "true_false", "scale"]),
         required: z.boolean(),
-        points: z.number().optional(), // Agregar validación para puntos
+        points: z.number().optional(),
         options: z.array(z.object({
-            text: z.string(),
+            text: z.string().optional(), // [CORRECCIÓN] text puede ser opcional a veces
             isCorrect: z.boolean().optional()
         })).optional(),
     })
@@ -51,6 +52,7 @@ export async function POST(
         const validation = saveQuestionsSchema.safeParse(body);
 
         if (!validation.success) {
+            console.error("Error de validación:", validation.error);
             return NextResponse.json(
                 { error: "Datos inválidos", details: validation.error.format() },
                 { status: 400 }
@@ -58,6 +60,7 @@ export async function POST(
         }
 
         // 4. Guardar preguntas
+        // (Asumiendo que formService.saveQuestions maneja el guardado en BD)
         await formService.saveQuestions(formId, validation.data);
 
         return NextResponse.json({ message: "Preguntas guardadas correctamente" });

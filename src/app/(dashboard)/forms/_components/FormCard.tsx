@@ -1,11 +1,10 @@
 "use client"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react" // [1. IMPORT NUEVO]
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-// [2. AGREGAR 'Copy' A LOS ICONOS]
 import { Edit, BarChart2, Eye, PlayCircle, CheckCircle, Share2, AlertCircle, Trash2, Copy } from "lucide-react"
 import { FormStatus, AssignmentStatus, STATUS_LABELS, STATUS_COLORS } from "@/lib/constants/statusTypes"
 import { useToast } from "@/hooks/use-toast"
@@ -30,13 +29,10 @@ interface FormCardProps {
 export default function FormCard({ form, role = 'USER' }: FormCardProps) {
     const router = useRouter()
     const { toast } = useToast()
-    // [3. ESTADO DE CARGA]
     const [isCloning, setIsCloning] = useState(false)
 
     // Determinar estado a mostrar
     const formStatus = form.status as FormStatus;
-
-    // User specific
     const hasResponse = form.hasResponse;
     const evaluation = form.userEvaluation;
     const publicToken = form.publicToken;
@@ -54,15 +50,42 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
 
     const shadcnVariant = (badgeVariant === 'success' ? 'outline' : badgeVariant) as "default" | "secondary" | "destructive" | "outline";
 
-    // Función para manejar el borrado
+    // --- [NUEVO] FUNCIÓN SEGURA PARA COPIAR EN HTTP Y HTTPS ---
+    const copyToClipboard = async (text: string) => {
+        // Intenta método moderno
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (err) {
+                console.error('Fallo clipboard API', err);
+            }
+        }
+
+        // Método antiguo (Fallback para HTTP)
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "absolute";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return true;
+        } catch (err) {
+            console.error('Fallo execCommand', err);
+            document.body.removeChild(textArea);
+            return false;
+        }
+    };
+    // ----------------------------------------------------------
+
     const handleDelete = async () => {
         try {
-            const res = await fetch(`/api/forms/${form.id}`, {
-                method: "DELETE",
-            });
-
+            const res = await fetch(`/api/forms/${form.id}`, { method: "DELETE" });
             if (!res.ok) throw new Error("Error al eliminar");
-
             toast({ title: "Formulario eliminado", description: "El formulario ha sido borrado exitosamente." });
             router.refresh();
         } catch (error) {
@@ -70,19 +93,14 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
         }
     };
 
-    // [4. FUNCIÓN PARA COPIAR]
     const handleClone = async () => {
         if (isCloning) return;
         setIsCloning(true);
         try {
             const res = await fetch(`/api/forms/${form.id}/clone`, { method: "POST" });
             if (!res.ok) throw new Error("Error al clonar");
-
             const json = await res.json();
-
             toast({ title: "Duplicado exitosamente", description: "Redirigiendo al nuevo formulario..." });
-
-            // Redirigir al editor de la copia
             if (json.redirectUrl) {
                 router.push(json.redirectUrl);
             } else {
@@ -98,10 +116,7 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
         <Card className="flex flex-col h-full hover:shadow-md transition-shadow group">
             <CardHeader>
                 <div className="flex justify-between items-start">
-                    <Badge
-                        variant={shadcnVariant}
-                        className={getBadgeClassName(badgeVariant)}
-                    >
+                    <Badge variant={shadcnVariant} className={getBadgeClassName(badgeVariant)}>
                         {displayLabel}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
@@ -160,7 +175,6 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
                             </Button>
                         </Link>
 
-                        {/* [5. BOTÓN COPIAR AGREGADO AQUÍ] */}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -178,9 +192,10 @@ export default function FormCard({ form, role = 'USER' }: FormCardProps) {
                                 size="sm"
                                 className="px-2"
                                 title="Copiar Link"
-                                onClick={() => {
+                                // [AQUÍ USAMOS LA FUNCIÓN SEGURA]cd
+                                onClick={async () => {
                                     const url = `${window.location.origin}/f/${form.publicToken || ''}`;
-                                    navigator.clipboard.writeText(url);
+                                    await copyToClipboard(url); // <-- CAMBIO AQUÍ
                                     toast({ title: "Link copiado al portapapeles" });
                                 }}
                             >
